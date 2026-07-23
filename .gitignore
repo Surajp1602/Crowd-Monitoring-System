@@ -1,0 +1,39 @@
+# Env
+.env
+.env.local
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+build/
+
+# Docker/data
+pgdata/
+redisdata/
+media/
+
+# AI models/weights (large binaries, fetched at build/runtime instead)
+*.pt
+*.onnx
+*.engine
+
+# IDE/OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

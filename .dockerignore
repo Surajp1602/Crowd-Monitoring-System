@@ -1,0 +1,12 @@
+**/node_modules
+**/.next
+**/dist
+**/.venv
+**/__pycache__
+**/*.pyc
+.git
+.env
+.env.local
+*.env
+.claude/
+apps/frontend/.venv-test

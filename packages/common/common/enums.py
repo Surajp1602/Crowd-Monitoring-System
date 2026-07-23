@@ -1,0 +1,115 @@
+from enum import Enum
+
+
+class RoleName(str, Enum):
+    ADMIN = "admin"
+    SUPERVISOR = "supervisor"
+    SECURITY_OFFICER = "security_officer"
+    VIEWER = "viewer"
+    GUEST = "guest"
+
+
+class StreamType(str, Enum):
+    RTSP = "rtsp"
+    HTTP = "http"
+    ONVIF = "onvif"
+    USB = "usb"
+    FILE = "file"
+    WEBCAM = "webcam"
+
+
+class CameraStatus(str, Enum):
+    ONLINE = "online"
+    OFFLINE = "offline"
+    ERROR = "error"
+    STARTING = "starting"
+    DISABLED = "disabled"
+
+
+class ZoneType(str, Enum):
+    PUBLIC = "public"
+    RESTRICTED = "restricted"
+    ENTRANCE = "entrance"
+    EXIT = "exit"
+    CORRIDOR = "corridor"
+    OPEN_SPACE = "open_space"
+    ASSEMBLY_POINT = "assembly_point"
+
+
+class TrackStatus(str, Enum):
+    ACTIVE = "active"
+    LOST = "lost"
+    HANDED_OFF = "handed_off"
+
+
+class EventType(str, Enum):
+    ENTRY = "entry"
+    EXIT = "exit"
+    ZONE_ENTER = "zone_enter"
+    ZONE_EXIT = "zone_exit"
+    CAMERA_HANDOFF = "camera_handoff"
+    CAMERA_ONLINE = "camera_online"
+    CAMERA_OFFLINE = "camera_offline"
+    ANOMALY = "anomaly"
+
+
+class AlertType(str, Enum):
+    PANIC = "panic"
+    RUNNING = "running"
+    STAMPEDE = "stampede"
+    VIOLENCE = "violence"
+    FIGHTING = "fighting"
+    RAPID_DENSITY_INCREASE = "rapid_density_increase"
+    CROWD_CONGESTION = "crowd_congestion"
+    COUNTER_FLOW = "counter_flow"
+    ABNORMAL_STOPPING = "abnormal_stopping"
+    SUSPICIOUS_GATHERING = "suspicious_gathering"
+    RESTRICTED_AREA_INTRUSION = "restricted_area_intrusion"
+    LOITERING = "loitering"
+    ABANDONED_OBJECT = "abandoned_object"
+    CAMERA_OFFLINE = "camera_offline"
+    SYSTEM = "system"
+
+
+class AlertSeverity(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class AlertStatus(str, Enum):
+    OPEN = "open"
+    ACKNOWLEDGED = "acknowledged"
+    RESOLVED = "resolved"
+    FALSE_POSITIVE = "false_positive"
+
+
+class NotificationChannel(str, Enum):
+    PUSH = "push"
+    SMS = "sms"
+    WHATSAPP = "whatsapp"
+    EMAIL = "email"
+    PUBLIC_ANNOUNCEMENT = "public_announcement"
+
+
+class NotificationStatus(str, Enum):
+    PENDING = "pending"
+    SENT = "sent"
+    FAILED = "failed"
+
+
+class MetricScope(str, Enum):
+    GLOBAL = "global"
+    BUILDING = "building"
+    FLOOR = "floor"
+    ZONE = "zone"
+    CAMERA = "camera"
+
+
+class LogLevel(str, Enum):
+    DEBUG = "debug"
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+    CRITICAL = "critical"
