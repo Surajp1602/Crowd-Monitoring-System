@@ -14,7 +14,7 @@ phase and exercise what's landed so far.
 - [x] **Phase 0** — Monorepo scaffold, Docker Compose, shared DB schema package
 - [x] **Phase 1** — Backend foundation: FastAPI, Postgres, JWT auth + RBAC, camera/map/alert/analytics CRUD
 - [x] **Phase 2** — Next.js dashboard shell: auth (guest/authority), camera management, alerts, live summary
-- [ ] Phase 3 — AI pipeline (YOLO + DeepSORT)
+- [x] **Phase 3** — AI pipeline: YOLO + DeepSORT, floor projection, kinematics, crowd simulator for hardware-free demos
 - [ ] Phase 4 — Real-time WebSocket layer + heatmap engine
 - [ ] Phase 5 — 3D facility map (Three.js / React Three Fiber)
 - [ ] Phase 6 — Anomaly detection + alert generation

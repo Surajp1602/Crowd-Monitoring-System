@@ -24,7 +24,7 @@ export interface User {
   created_at: string;
 }
 
-export type StreamType = "rtsp" | "http" | "onvif" | "usb" | "file" | "webcam";
+export type StreamType = "rtsp" | "http" | "onvif" | "usb" | "file" | "webcam" | "simulated";
 export type CameraStatus = "online" | "offline" | "error" | "starting" | "disabled";
 
 export interface Camera {

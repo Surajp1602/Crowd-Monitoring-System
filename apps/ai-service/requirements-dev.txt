@@ -1,0 +1,7 @@
+-r requirements.txt
+# CPU wheels for local/dev testing; the Docker image instead starts from an
+# official pytorch/pytorch CUDA base image with GPU-matched torch preinstalled.
+torch==2.4.1
+torchvision==0.19.1
+pytest==8.2.2
+pytest-asyncio==0.23.7

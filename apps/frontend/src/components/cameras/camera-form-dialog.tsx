@@ -24,6 +24,7 @@ const STREAM_TYPES: { value: StreamType; label: string }[] = [
   { value: "usb", label: "USB" },
   { value: "file", label: "Video File" },
   { value: "webcam", label: "Webcam" },
+  { value: "simulated", label: "Simulated crowd (demo)" },
 ];
 
 const EMPTY_FORM = {

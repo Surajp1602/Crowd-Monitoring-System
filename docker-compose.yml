@@ -78,6 +78,28 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  ai-service:
+    image: crowd-density-ai:latest
+    build:
+      context: .
+      dockerfile: apps/ai-service/Dockerfile
+      args:
+        BASE_IMAGE: ${AI_SERVICE_BASE_IMAGE:-pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://ccd:ccd@postgres:5432/ccd}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      BACKEND_URL: http://backend:8000
+      INTERNAL_SERVICE_API_KEY: ${INTERNAL_SERVICE_API_KEY:-dev-internal-service-key-change-me}
+      CAMERA_CREDENTIAL_ENCRYPTION_KEY: ${CAMERA_CREDENTIAL_ENCRYPTION_KEY:-3vY9x2b6w0G8e5v3q9m1n4p7r0t2u5x8A1b3D6f9J2k=}
+      DEVICE: ${AI_SERVICE_DEVICE:-auto}
+      MEDIA_DIR: /data/media
+    volumes:
+      - media:/data/media
+    depends_on:
+      backend:
+        condition: service_healthy
+
   frontend:
     image: crowd-density-frontend:latest
     build:

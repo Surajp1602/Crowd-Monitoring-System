@@ -10,7 +10,21 @@ from app.db.seed import run_seed
 from app.db.session import get_db
 from app.main import app
 
+from tests.fakes import FakeRedis
+
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+
+@pytest.fixture(autouse=True)
+def fake_redis(monkeypatch):
+    """Every module that imported `get_redis` gets the same in-memory fake."""
+    import sys
+
+    fake = FakeRedis()
+    for name, module in list(sys.modules.items()):
+        if (name == "app" or name.startswith("app.")) and hasattr(module, "get_redis"):
+            monkeypatch.setattr(module, "get_redis", lambda: fake)
+    return fake
 
 
 @pytest_asyncio.fixture

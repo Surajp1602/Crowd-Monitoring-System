@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.enums import CameraStatus
 from common.models import Camera
+from common.redis_channels import CAMERA_COMMANDS_CHANNEL
 
+from app.core.redis import publish_event
 from app.core.security import encrypt_secret
 from app.repositories.entities import CameraRepository
 from app.schemas.camera import CameraCreate, CameraHealthUpdate, CameraUpdate
@@ -24,6 +26,7 @@ async def create_camera(db: AsyncSession, payload: CameraCreate, created_by: uui
     camera = await repo.create(**data, created_by=created_by, status=CameraStatus.STARTING)
     await db.commit()
     await db.refresh(camera)
+    await publish_event(CAMERA_COMMANDS_CHANNEL, {"action": "created", "camera_id": str(camera.id)})
     return camera
 
 
@@ -35,6 +38,7 @@ async def update_camera(db: AsyncSession, camera: Camera, payload: CameraUpdate)
     camera = await repo.update(camera, **data)
     await db.commit()
     await db.refresh(camera)
+    await publish_event(CAMERA_COMMANDS_CHANNEL, {"action": "updated", "camera_id": str(camera.id)})
     return camera
 
 
@@ -46,8 +50,10 @@ async def get_camera_or_404(db: AsyncSession, camera_id: uuid.UUID) -> Camera:
 
 
 async def delete_camera(db: AsyncSession, camera: Camera) -> None:
+    camera_id = str(camera.id)
     await CameraRepository(db).delete(camera)
     await db.commit()
+    await publish_event(CAMERA_COMMANDS_CHANNEL, {"action": "deleted", "camera_id": camera_id})
 
 
 async def apply_health_update(db: AsyncSession, camera: Camera, payload: CameraHealthUpdate) -> Camera:
