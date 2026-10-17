@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from common.rbac import Perm
 
 from app.core.config import get_settings
+from app.core.ratelimit import limit_login
 from app.deps import CurrentUserDep, DbSession, require_permission
 from app.schemas.auth import (
     AccessTokenResponse,
@@ -19,7 +20,8 @@ settings = get_settings()
 
 
 @router.post("/login", response_model=TokenPair)
-async def login(payload: LoginRequest, db: DbSession):
+async def login(payload: LoginRequest, request: Request, db: DbSession):
+    await limit_login(request, payload.email)
     user, access_token, refresh_token = await auth_service.authenticate(db, payload.email, payload.password)
     return TokenPair(access_token=access_token, refresh_token=refresh_token, user=UserRead.model_validate(user))
 

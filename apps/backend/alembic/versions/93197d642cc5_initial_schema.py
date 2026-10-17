@@ -374,3 +374,11 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_analytics_metrics_metric_name'), table_name='analytics_metrics')
     op.drop_table('analytics_metrics')
     # ### end Alembic commands ###
+    # Dropping the tables leaves their Postgres enum types behind, and a later upgrade would then
+    # fail with "type already exists".
+    for enum_name in (
+        "alert_severity", "alert_status", "alert_type", "camera_status", "event_type", "log_level",
+        "metric_scope", "notification_channel", "notification_status", "stream_type", "track_status",
+        "zone_type",
+    ):
+        op.execute(f"DROP TYPE IF EXISTS {enum_name}")

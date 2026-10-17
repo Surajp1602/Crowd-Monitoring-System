@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -43,6 +44,39 @@ class Settings(BaseSettings):
 
     STORAGE_DIR: str = "/data/media"
     """Local mount for alert snapshots/clips; swap for S3/Blob in production via storage backend."""
+
+    TRUST_PROXY_HEADERS: bool = False
+    """Read the client address from X-Real-IP. Only true behind the bundled NGINX, which sets it."""
+
+    LOGIN_RATE_LIMIT_ENABLED: bool = True
+    LOGIN_RATE_WINDOW_S: int = 300
+    LOGIN_RATE_PER_ACCOUNT: int = 10
+    """Attempts per client address and account in one window."""
+    LOGIN_RATE_PER_IP: int = 50
+    """Attempts per client address across all accounts in one window."""
+
+    METRICS_TOKEN: str = ""
+    """When set, /metrics requires it as a bearer token."""
+
+    @model_validator(mode="after")
+    def _refuse_dev_secrets_in_production(self) -> "Settings":
+        """A production boot with any development default is refused rather than run insecurely."""
+        if self.ENVIRONMENT != "production":
+            return self
+        defaults = {
+            "SECRET_KEY": "change-me-in-production-this-is-not-secure",
+            "INTERNAL_SERVICE_API_KEY": "dev-internal-service-key-change-me",
+            "CAMERA_CREDENTIAL_ENCRYPTION_KEY": "3vY9x2b6w0G8e5v3q9m1n4p7r0t2u5x8A1b3D6f9J2k=",
+            "FIRST_ADMIN_PASSWORD": "ChangeMe123!",
+        }
+        unsafe = [name for name, value in defaults.items() if getattr(self, name) == value]
+        if len(self.SECRET_KEY) < 32 and "SECRET_KEY" not in unsafe:
+            unsafe.append("SECRET_KEY (shorter than 32 characters)")
+        if self.DEBUG:
+            unsafe.append("DEBUG")
+        if unsafe:
+            raise ValueError("Refusing to start in production with development values for: " + ", ".join(unsafe))
+        return self
 
 
 @lru_cache

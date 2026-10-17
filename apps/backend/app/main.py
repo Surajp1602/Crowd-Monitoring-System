@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.api import api_router
+from app.core import observability
 from app.core.config import get_settings
 from app.db.demo_seed import seed_demo_facility, seed_demo_team
 from app.db.seed import run_seed
@@ -42,8 +43,9 @@ app = FastAPI(
     version="0.1.0",
     debug=settings.DEBUG,
     lifespan=lifespan,
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
+    # Interactive docs stay off in production; the schema is still published for clients.
+    docs_url=None if settings.ENVIRONMENT == "production" else "/api/docs",
+    redoc_url=None if settings.ENVIRONMENT == "production" else "/api/redoc",
     openapi_url="/api/openapi.json",
 )
 
@@ -54,6 +56,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+observability.install(app)
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 app.include_router(ws_router)

@@ -10,3 +10,8 @@
 *.env
 .claude/
 apps/frontend/.venv-test
+.env.*
+!.env*.example
+infra/nginx/certs/
+media/
+apps/*/juried/jury/20*/

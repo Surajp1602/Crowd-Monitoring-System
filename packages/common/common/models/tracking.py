@@ -3,11 +3,11 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import DateTime, Float, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from common.enums import TrackStatus
-from common.models.base import Base, TimestampMixin, UUIDPKMixin
+from common.models.base import Base, UUIDPKMixin
 from common.models.types import GUID, PortableJSON
 
 

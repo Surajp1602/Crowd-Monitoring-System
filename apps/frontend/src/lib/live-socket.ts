@@ -3,6 +3,12 @@ import type { LiveMessage, LiveStatus } from "@/lib/live-types";
 import { useAuthStore } from "@/stores/auth-store";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000";
+
+/** An empty NEXT_PUBLIC_WS_URL means same origin (behind the reverse proxy): ws or wss to this host. */
+function wsBase() {
+  if (WS_URL) return WS_URL;
+  return `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}`;
+}
 const CLOSE_UNAUTHORIZED = 4401;
 const IDLE_CLOSE_MS = 20_000;
 const MAX_BACKOFF_MS = 15_000;
@@ -94,7 +100,7 @@ class LiveSocket {
     this.lastToken = token;
     this.setStatus(this._status === "idle" ? "connecting" : "reconnecting");
 
-    const ws = new WebSocket(`${WS_URL}/ws/live`);
+    const ws = new WebSocket(`${wsBase()}/ws/live`);
     this.ws = ws;
     this.ready = false;
 

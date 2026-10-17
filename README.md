@@ -21,7 +21,7 @@ phase and exercise what's landed so far.
 - [x] **Phase 7** — Notification worker: staff and geofenced public routing, SMTP / Twilio / FCM / webhook providers, public subscribe page
 - [x] **Phase 8** — Analytics (trends, typical week, zone capacity, alerts by day), system health, AI settings, user admin
 - [x] **Product site** — `apps/landing`, built with the Juried studio (density-terrain hero, tilt-to-plan chapter); calibrated jury score 7.3
-- [ ] Phase 9 — Production hardening (NGINX, HTTPS, CI/CD, monitoring)
+- [x] Phase 9 — Production hardening (NGINX, HTTPS, CI/CD, monitoring)
 - [ ] Phase 10 — Cloud deploy configs + full documentation
 
 ## Architecture
