@@ -1,0 +1,33 @@
+# Schema migrations, run once per release before the new backend rolls out:
+#   kubectl -n ccd delete job ccd-migrate --ignore-not-found && kubectl apply -k <overlay>
+#   kubectl -n ccd wait --for=condition=complete job/ccd-migrate --timeout=5m
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ccd-migrate
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: migrate
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: migrate
+          image: ccd-backend
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - configMapRef: { name: ccd-config }
+            - secretRef: { name: ccd-secrets }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 256Mi }

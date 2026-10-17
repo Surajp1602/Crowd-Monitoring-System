@@ -1,0 +1,49 @@
+# Notification dispatch, rollups and retention. Replicas share the Redis Stream consumer group, so
+# each alert is dispatched once; rollups and retention take a Redis claim per period.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app.kubernetes.io/name: worker }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: worker }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: worker
+          image: ccd-worker
+          ports:
+            - { name: health, containerPort: 8090 }
+          envFrom:
+            - configMapRef: { name: ccd-config }
+            - secretRef: { name: ccd-secrets }
+          env:
+            # A stable consumer name per pod, so a restarted pod reclaims its own pending messages.
+            - name: CONSUMER_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+          readinessProbe:
+            httpGet: { path: /health, port: health }
+            periodSeconds: 15
+          livenessProbe:
+            httpGet: { path: /health, port: health }
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: {}

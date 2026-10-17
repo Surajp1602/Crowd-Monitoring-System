@@ -1,0 +1,29 @@
+# Production: managed Postgres and Redis, a GPU node for detection, autoscaling, disruption budgets
+# and a cert-manager certificate. Before applying:
+#   1. Set your hosts in the ConfigMap patch below and in certificate.yaml.
+#   2. Create the secret from a filled-in copy of secrets.example.env (never commit it):
+#        kubectl -n ccd create secret generic ccd-secrets --from-env-file=secrets.prod.env
+#   3. Pin image tags (images: below) to the release you built.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - autoscaling.yaml
+  - certificate.yaml
+
+patches:
+  - target: { kind: ConfigMap, name: ccd-config }
+    patch: |-
+      - { op: replace, path: /data/APP_HOST, value: control.example.com }
+      - { op: replace, path: /data/SITE_HOST, value: www.example.com }
+      - { op: replace, path: /data/PUBLIC_DASHBOARD_URL, value: "https://control.example.com" }
+      - { op: replace, path: /data/CORS_ORIGINS, value: '["https://control.example.com"]' }
+      - { op: replace, path: /data/DEVICE, value: cuda }
+  - path: ai-service-gpu.yaml
+
+images:
+  - { name: ccd-backend, newName: ghcr.io/your-org/ccd-backend, newTag: "1.0.0" }
+  - { name: ccd-ai-service, newName: ghcr.io/your-org/ccd-ai-service, newTag: "1.0.0" }
+  - { name: ccd-worker, newName: ghcr.io/your-org/ccd-worker, newTag: "1.0.0" }
+  - { name: ccd-frontend, newName: ghcr.io/your-org/ccd-frontend, newTag: "1.0.0" }
+  - { name: ccd-edge, newName: ghcr.io/your-org/ccd-edge, newTag: "1.0.0" }

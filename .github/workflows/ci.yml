@@ -130,6 +130,10 @@ jobs:
           sh infra/scripts/dev-certs.sh
           docker run --rm --add-host backend:127.0.0.1 --add-host frontend:127.0.0.1 \
             -v "$PWD/infra/nginx/certs:/etc/nginx/certs:ro" ccd-edge nginx -t
+      - name: Kubernetes overlays render
+        run: |
+          kubectl kustomize deploy/k8s/overlays/dev > /dev/null
+          kubectl kustomize deploy/k8s/overlays/production > /dev/null
       - name: Production compose overlay resolves
         run: |
           cp .env.production.example ci.env

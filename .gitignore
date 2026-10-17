@@ -42,3 +42,5 @@ Thumbs.db
 infra/nginx/certs/
 .env.*
 !.env*.example
+!deploy/k8s/overlays/dev/secrets.dev.env
+!**/secrets.example.env

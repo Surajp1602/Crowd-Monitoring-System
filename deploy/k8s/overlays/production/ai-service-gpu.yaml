@@ -1,0 +1,18 @@
+# Detection on one NVIDIA GPU (requires the NVIDIA device plugin on the node pool).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-service
+  namespace: ccd
+spec:
+  template:
+    spec:
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - { key: nvidia.com/gpu, operator: Exists, effect: NoSchedule }
+      containers:
+        - name: ai-service
+          resources:
+            requests: { cpu: "2", memory: 4Gi, nvidia.com/gpu: 1 }
+            limits: { memory: 8Gi, nvidia.com/gpu: 1 }

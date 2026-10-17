@@ -1,141 +1,136 @@
-# Crowd Density Mapping & Anomaly Detection Platform
+# CCD: Crowd Density Mapping and Anomaly Detection
 
-An enterprise crowd-monitoring platform: multi-camera ingestion, YOLO/DeepSORT
-person detection and tracking, live density heatmaps, a 3D facility map,
-crowd anomaly detection (panic, stampede, violence, loitering, intrusion...),
-real-time alerting, and historical analytics.
+CCD turns CCTV into a live density map of a venue and a stream of evidence-backed alerts. It ingests
+many cameras, detects and tracks people (YOLO and DeepSORT), projects them onto the floor plan,
+builds density heatmaps with isolines, and runs twelve crowd anomaly detectors: panic, running,
+stampede risk, fighting, rapid density rise, congestion, counter-flow, abnormal stopping, suspicious
+gathering, restricted-area intrusion, loitering and abandoned objects. Alerts reach staff by role and
+the public by distance, by email, SMS, WhatsApp, push and public address. No face recognition.
 
-This repository is being built in phases (see [Roadmap](#roadmap)). Each phase
-ships fully working code, not stubs — you can `docker compose up` after every
-phase and exercise what's landed so far.
+- **Control center** (`apps/frontend`): overview, camera wall, 3D and plan facility map with a live
+  density field, alert triage with snapshots, analytics, notifications, system health, AI settings,
+  users and a read-only guest view.
+- **Product site** (`apps/landing`): the public site, built with the Juried studio.
 
-## Status
+A simulated camera type renders a moving crowd through a two-floor demo station, so the whole
+platform runs, alerts and all, with no cameras and no GPU.
 
-- [x] **Phase 0** — Monorepo scaffold, Docker Compose, shared DB schema package
-- [x] **Phase 1** — Backend foundation: FastAPI, Postgres, JWT auth + RBAC, camera/map/alert/analytics CRUD
-- [x] **Phase 2** — Next.js dashboard shell: auth (guest/authority), camera management, alerts, live summary
-- [x] **Phase 3** — AI pipeline: YOLO + DeepSORT, floor projection, kinematics, crowd simulator for hardware-free demos
-- [x] **Phase 4** — Real-time WebSocket gateway, floor heatmap engine with isolines, live dashboard, demo facility
-- [x] **Phase 5** — 3D facility map (density terrain, live people, cameras) and a 2D layout editor
-- [x] **Phase 6** — Anomaly detection (12 detectors) with evidence snapshots, alert lifecycle UI, map markers
-- [x] **Phase 7** — Notification worker: staff and geofenced public routing, SMTP / Twilio / FCM / webhook providers, public subscribe page
-- [x] **Phase 8** — Analytics (trends, typical week, zone capacity, alerts by day), system health, AI settings, user admin
-- [x] **Product site** — `apps/landing`, built with the Juried studio (density-terrain hero, tilt-to-plan chapter); calibrated jury score 7.3
-- [x] Phase 9 — Production hardening (NGINX, HTTPS, CI/CD, monitoring)
-- [ ] Phase 10 — Cloud deploy configs + full documentation
-
-## Architecture
-
-```
-crowd-density/
-├── apps/
-│   ├── backend/        FastAPI REST + WebSocket API, Alembic migrations, RBAC
-│   ├── frontend/        Next.js dashboard — auth, camera mgmt, alerts, live summary
-│   ├── ai-service/      YOLO + DeepSORT detection/tracking pipeline (Phase 3)
-│   └── worker/          Celery workers for async/scheduled jobs (Phase 3+)
-├── packages/
-│   └── common/          Shared SQLAlchemy models, enums, RBAC catalogue,
-│                         Pydantic message schemas — single source of truth
-│                         for the DB schema and cross-service contracts.
-├── infra/               nginx, deploy scripts, IaC (later phases)
-├── docs/                Architecture/ER diagrams, guides (Phase 10)
-└── docker-compose.yml
-```
-
-**Why a shared `packages/common`?** Both the backend API and the AI service
-read/write the same tables (cameras, tracks, alerts, ...). Defining the
-SQLAlchemy models once and importing them from both services means the
-schema can never drift between producer and consumer.
-
-Model columns that need a Postgres-only type (`UUID`, `JSONB`) use portable
-`GUID`/`PortableJSON` wrappers (`packages/common/common/models/types.py`) so
-the exact same models run against Postgres in production/dev and SQLite in
-the fast unit-test suite.
-
-## Quickstart (Docker Compose)
+## Quickstart
 
 ```bash
 cp .env.example .env
-docker compose build backend migrate frontend
+docker compose up -d --build
+```
+
+| | |
+|---|---|
+| Control center | http://localhost:3000 (sign in as `admin@ccd-platform.com` / `ChangeMe123!`, or continue as guest) |
+| API docs | http://localhost:8000/api/docs |
+| Health | http://localhost:8000/health |
+
+The first boot seeds roles, the first admin, the demo station with eight simulated cameras, a demo
+team and 14 days of occupancy history. Set `SEED_DEMO_DATA=false` and `SEED_DEMO_HISTORY=false`
+before the first boot for an empty system. With an NVIDIA GPU and the container toolkit, add
+`-f docker-compose.gpu.yml`.
+
+## Repository
+
+```
+apps/
+  backend/      FastAPI REST and WebSocket API, auth and RBAC, alert ingest and grouping, Alembic
+  ai-service/   capture, YOLO + DeepSORT, floor projection, heatmaps, anomaly detectors, simulator
+  worker/       notification dispatch (Redis Streams), minute rollups, retention, demo history
+  frontend/     Next.js 16 operator dashboard (React 19, Tailwind 4, react-three-fiber)
+  landing/      product site (React + Vite + three.js), with its Juried brief and jury log
+packages/
+  common/       shared SQLAlchemy models, enums, permissions, message schemas
+infra/
+  nginx/        edge image: TLS, product site, proxy, rate limits, security headers
+  monitoring/   Prometheus scrape config and alert rules, Grafana provisioning and dashboard
+  scripts/      dev certificate generator
+deploy/k8s/     Kustomize base plus dev and production overlays
+docs/           architecture, database, API, operations, design direction
+```
+
+## Documentation
+
+- [Architecture](docs/architecture.md): services, the frame-to-alert pipeline, Redis contracts,
+  security model and design decisions
+- [Database](docs/database.md): ER diagram generated from the models, tables, migrations
+- [API](docs/api.md): authentication, conventions, the WebSocket protocol and every endpoint
+- [Operations](docs/operations.md): production with Compose or Kubernetes, secrets, backups,
+  monitoring and runbooks
+- [Art direction](docs/design/art-direction.md): the shared visual language of the dashboard and site
+
+## Development
+
+Run the data stores in Docker and the services natively for hot reload:
+
+```bash
 docker compose up -d postgres redis
-docker compose run --rm migrate alembic upgrade head
-docker compose up -d backend frontend
+cd apps/backend && python -m venv .venv && .venv/Scripts/pip install -r requirements-dev.txt   # bin/ on Linux and macOS
+.venv/Scripts/python -m uvicorn app.main:app --reload
+cd apps/frontend && npm install && npm run dev
 ```
 
-- Dashboard: http://localhost:3000
-- API: http://localhost:8000
-- Swagger UI: http://localhost:8000/api/docs
-- Health: http://localhost:8000/health
+The ai-service and worker follow the same pattern (`python -m app.main`). `.claude/launch.json`
+holds the full set of local commands and environment, ports 8000, 8080, 8090, 3000 and 5173.
 
-For frontend development with hot reload instead of the production container:
+### Tests
 
 ```bash
-cd apps/frontend
-npm install
-npm run dev
+cd apps/backend    && pytest -q   # 57 tests, in-memory SQLite and a fake Redis
+cd apps/worker     && pytest -q   # 18 tests
+cd apps/ai-service && pip install -r requirements-test.txt && pytest -q   # 59 tests, no model stack
+cd apps/frontend   && npm run lint && npm run typecheck && npm run build
 ```
 
-`apps/frontend/.env.local` already points it at `http://localhost:8000`.
+The models use portable `GUID` and `PortableJSON` column types, so the same schema runs on Postgres
+and on SQLite in the unit tests. CI (`.github/workflows/ci.yml`) also runs a migration round trip on
+Postgres, builds every image, checks the NGINX config, renders the Kubernetes overlays and resolves
+the production compose file.
 
-A first admin user is seeded automatically on startup from
-`FIRST_ADMIN_EMAIL` / `FIRST_ADMIN_PASSWORD` in `.env` (defaults:
-`admin@ccd-platform.com` / `ChangeMe123!`). **Change the password after first
-login in any non-local environment.**
+### Migrations
 
-Try it:
+Models live in `packages/common/common/models`. See [Database](docs/database.md#migrations) for
+generating and reviewing a revision.
+
+### Frontend dependency pins
+
+`apps/frontend/package.json` pins `typescript` to `5.9.3` and `eslint` to `9.39.5`. TypeScript 7's
+native rewrite breaks Next.js's tsconfig parsing (`next build` fails to resolve `@/*` aliases), and
+ESLint 10 crashes `eslint-config-next`'s config loader. Re-test `npm run build` and `npm run lint`
+before upgrading either.
+
+## Production
 
 ```bash
-# Guest session (read-only, no login required)
-curl -s -X POST http://localhost:8000/api/v1/auth/guest
-
-# Authority login
-curl -s -X POST http://localhost:8000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@ccd-platform.com","password":"ChangeMe123!"}'
+cp .env.production.example .env.production   # fill in every secret
+sh infra/scripts/dev-certs.sh                # or mount real certificates
+make prod-up                                 # NGINX edge on 80/443, nothing else published
 ```
 
-### Adding a new database migration
+The backend refuses to start in production with any development secret. Kubernetes manifests, secret
+rotation, backups, monitoring and runbooks are in [Operations](docs/operations.md).
 
-Models live in `packages/common/common/models/`. After changing them:
+## Build history
 
-```bash
-docker compose build backend migrate
-docker compose run --rm migrate alembic revision --autogenerate -m "describe the change"
-```
-
-The generated file lands inside the throwaway container, so `docker compose
-run` (without `--rm`) + `docker cp` is needed to retrieve it if you don't
-have a bind mount configured — or add a bind mount for faster local
-iteration. Review the generated migration before applying it; autogenerate
-is a starting point, not a guarantee.
-
-## Running the backend test suite locally (fast, no Docker)
-
-```bash
-cd apps/backend
-python -m venv .venv && . .venv/Scripts/activate  # or source .venv/bin/activate
-pip install -r requirements-dev.txt
-pytest -q
-```
-
-Tests run against an in-memory SQLite database via the portable column types
-described above — no Postgres/Docker required for the unit test suite.
-
-### Frontend dependency pins (read before bumping)
-
-`apps/frontend/package.json` intentionally pins `typescript` to `5.9.3` and
-`eslint` to `9.39.5` rather than tracking `latest`. At time of writing,
-TypeScript 7's native rewrite breaks Next.js's internal tsconfig parsing
-(`next build` silently fails to resolve `@/*` path aliases with a "Module
-not found" error — `tsc` itself works fine, since Next doesn't shell out to
-it), and ESLint 10 crashes `eslint-config-next`'s config loader. Re-test both
-`npm run build` and `npm run lint` before upgrading either.
-
-## Roadmap
-
-See the phase list above. Each phase is tracked as its own unit of work with
-its own tests and a working `docker compose` stack at the end of it.
+| Phase | Delivered |
+|---|---|
+| 0 | Monorepo, Docker Compose, shared schema package |
+| 1 | FastAPI backend: Postgres, JWT auth and RBAC, camera, map, alert and analytics APIs |
+| 2 | Next.js dashboard shell: guest and operator sign-in, camera management, alerts |
+| 3 | AI pipeline: YOLO + DeepSORT, floor projection, kinematics, crowd simulator |
+| 4 | WebSocket gateway, floor heatmaps with isolines, live dashboard, demo facility |
+| 5 | 3D facility map and 2D layout editor |
+| 6 | Twelve anomaly detectors with evidence snapshots and the alert lifecycle |
+| 7 | Notification worker: staff and geofenced public routing, SMTP, Twilio, FCM and webhook providers |
+| 8 | Analytics, system health, AI settings, user administration |
+| Site | Product site built with Juried; calibrated jury 7.3 |
+| Jury | Dashboard juried to 7.1 with accessibility gates clean; alert grouping |
+| 9 | NGINX TLS edge, rate limiting, security headers, Prometheus and Grafana, CI, hardened images |
+| 10 | Kubernetes deploy configs and the documentation set |
 
 ## License
 
-Proprietary — internal enterprise platform (adjust as needed for your org).
+Proprietary. Adjust for your organisation.
