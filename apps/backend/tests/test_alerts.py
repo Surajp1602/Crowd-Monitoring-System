@@ -138,3 +138,34 @@ async def test_signed_media_links(client, tmp_path, monkeypatch):
 
     traversal = media.sign_media_path("../secret.txt")
     assert (await client.get(traversal)).status_code == 404
+
+
+async def test_repeat_within_window_joins_the_open_alert(client, fake_redis):
+    first = await _ingest(client)
+    again = await _ingest(client, confidence=0.97, map_x=5.0)
+    assert again["id"] == first["id"]
+    assert again["metadata"]["occurrences"] == 2
+    assert again["confidence"] == 0.97 and again["map_x"] == 5.0
+    # The repeat is a live update, not a second page to the dispatcher.
+    assert await fake_redis.xlen("alerts:dispatch") == 1
+
+
+async def test_escalation_updates_severity_and_notifies_again(client, fake_redis):
+    first = await _ingest(client, alert_type="panic", severity="high", title="Possible panic")
+    again = await _ingest(client, alert_type="panic", severity="critical", title="Panic: crowd fleeing")
+    assert again["id"] == first["id"]
+    assert again["severity"] == "critical" and again["title"] == "Panic: crowd fleeing"
+    assert await fake_redis.xlen("alerts:dispatch") == 2
+
+
+async def test_repeat_on_another_camera_or_after_resolve_is_a_new_alert(client, admin_credentials):
+    headers = await _admin(client, admin_credentials)
+    cam = await _camera(client, headers)
+    first = await _ingest(client)
+    other = await _ingest(client, camera_id=cam["id"])
+    assert other["id"] != first["id"]
+
+    resp = await client.patch(f"/api/v1/alerts/{first['id']}/status", headers=headers, json={"status": "resolved"})
+    assert resp.status_code == 200, resp.text
+    fresh = await _ingest(client)
+    assert fresh["id"] != first["id"]

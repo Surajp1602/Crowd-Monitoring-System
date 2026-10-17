@@ -416,8 +416,11 @@ def _person_color(track_id: int) -> list[int]:
     """A stable clothing colour per person (an HSV→BGR conversion is costly per frame)."""
     color = _COLOR_CACHE.get(track_id)
     if color is None:
+        # Muted, varied tones like real clothing under station lighting, not a UI palette.
         hue = (track_id * 47) % 180
-        color = cv2.cvtColor(np.uint8([[[hue, 120, 200]]]), cv2.COLOR_HSV2BGR)[0][0].tolist()
+        sat = 35 + (track_id * 29) % 50
+        val = 95 + (track_id * 53) % 90
+        color = cv2.cvtColor(np.uint8([[[hue, sat, val]]]), cv2.COLOR_HSV2BGR)[0][0].tolist()
         if len(_COLOR_CACHE) > 5000:
             _COLOR_CACHE.clear()
         _COLOR_CACHE[track_id] = color

@@ -21,7 +21,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
           <Toaster
             theme="dark"
-            position="top-right"
+            position="bottom-right"
+            visibleToasts={2}
             toastOptions={{
               style: {
                 background: "var(--ink-3)",

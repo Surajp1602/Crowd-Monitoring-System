@@ -14,7 +14,7 @@ const badgeVariants = cva(
         warning: "border-severity-busy/35 text-severity-busy",
         high: "border-severity-high/40 text-severity-high",
         destructive: "border-severity-critical/45 text-severity-critical",
-        critical: "border-transparent bg-severity-critical text-white",
+        critical: "border-transparent bg-severity-critical font-semibold text-ink",
         muted: "border-rule text-paper-faint",
       },
     },

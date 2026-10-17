@@ -27,8 +27,24 @@ export function FloorPanel({ onHeatmap }: { onHeatmap?: (floorId: string, frame:
   const { heatmap, tracks } = useFloorLive(floorId);
   const canSeeAlerts = useAuthStore((s) => s.permissions.includes(Perm.ALERT_VIEW));
   const active = useActiveAlerts(canSeeAlerts);
+  // Only what needs a decision now: high and critical alerts from the last ten minutes, one ring per
+  // two-metre cell, so the density field stays readable underneath.
+  const since = active.dataUpdatedAt - 10 * 60_000; // relative to the fetch, so render stays pure
+  const cells = new Set<string>();
   const markers = (active.data?.items ?? [])
-    .filter((a) => a.metadata?.floor_id === floorId && a.map_x != null && a.map_y != null)
+    .filter(
+      (a) =>
+        a.metadata?.floor_id === floorId &&
+        a.map_x != null &&
+        a.map_y != null &&
+        (a.severity === "high" || a.severity === "critical") &&
+        new Date(a.created_at).getTime() >= since
+    )
+    .filter((a) => {
+      const cell = `${Math.round(a.map_x! / 2)}:${Math.round(a.map_y! / 2)}`;
+      return cells.has(cell) ? false : (cells.add(cell), true);
+    })
+    .slice(0, 8)
     .map((a) => ({ id: a.id, x: a.map_x!, y: a.map_y!, severity: a.severity }));
 
   useEffect(() => {

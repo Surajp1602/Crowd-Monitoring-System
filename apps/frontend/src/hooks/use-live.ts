@@ -126,7 +126,9 @@ export function useAlertStream(onAlert?: (alert: AlertEvent) => void) {
       onAlert?.(m.data);
       if (SEVERITY_RANK[m.data.severity] >= SEVERITY_RANK.high) {
         const notify = m.data.severity === "critical" ? toast.error : toast.warning;
-        notify(m.data.title, { description: m.data.description ?? undefined, duration: 8000 });
+        // One toast per alert type and place: repeats replace it instead of stacking up.
+        const id = `${m.data.alert_type}:${m.data.zone_id ?? m.data.camera_id ?? "site"}`;
+        notify(m.data.title, { id, description: m.data.description ?? undefined, duration: 8000 });
       }
     }
   });

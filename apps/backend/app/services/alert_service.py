@@ -63,7 +63,67 @@ async def _enqueue_dispatch(alert: Alert) -> None:
         logger.warning("Could not enqueue alert %s for dispatch", alert.id, exc_info=True)
 
 
+GROUP_WINDOW = timedelta(minutes=10)
+"""A repeat of the same alert type on the same camera and zone within this long of the last
+occurrence joins the open alert instead of raising a new one."""
+
+SEVERITY_RANK = {AlertSeverity.LOW: 0, AlertSeverity.MEDIUM: 1, AlertSeverity.HIGH: 2, AlertSeverity.CRITICAL: 3}
+
+
+def _aware(ts: datetime) -> datetime:
+    return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+
+
+async def _find_group(db: AsyncSession, payload: AlertCreate, now: datetime) -> Alert | None:
+    if payload.alert_type == AlertType.CAMERA_OFFLINE:
+        return None
+    query = (
+        select(Alert)
+        .where(
+            Alert.alert_type == payload.alert_type,
+            Alert.status.in_((AlertStatus.OPEN, AlertStatus.ACKNOWLEDGED)),
+            Alert.camera_id.is_(None) if payload.camera_id is None else Alert.camera_id == payload.camera_id,
+            Alert.zone_id.is_(None) if payload.zone_id is None else Alert.zone_id == payload.zone_id,
+        )
+        .order_by(Alert.created_at.desc())
+        .limit(1)
+    )
+    alert = (await db.execute(query)).scalar_one_or_none()
+    if alert is None:
+        return None
+    last_seen = (alert.metadata_json or {}).get("last_seen_at")
+    last = _aware(datetime.fromisoformat(last_seen)) if last_seen else _aware(alert.created_at)
+    return alert if now - last <= GROUP_WINDOW else None
+
+
+async def _join_group(db: AsyncSession, alert: Alert, payload: AlertCreate, now: datetime) -> Alert:
+    """Counts the repeat on the open alert. Only an escalation in severity notifies again."""
+    escalated = SEVERITY_RANK[payload.severity] > SEVERITY_RANK[alert.severity]
+    meta = dict(alert.metadata_json or {})
+    meta["occurrences"] = int(meta.get("occurrences", 1)) + 1
+    meta["last_seen_at"] = now.isoformat()
+    fields: dict = {"metadata_json": meta, "confidence": max(alert.confidence, payload.confidence)}
+    if escalated:
+        fields.update(severity=payload.severity, title=payload.title, description=payload.description)
+    if payload.snapshot_url:
+        fields["snapshot_url"] = payload.snapshot_url
+    if payload.map_x is not None and payload.map_y is not None:
+        fields.update(map_x=payload.map_x, map_y=payload.map_y)
+    alert = await AlertRepository(db).update(alert, **fields)
+    await db.commit()
+    await db.refresh(alert)
+    await publish_event(ALERTS_CHANNEL, alert_event_payload(alert, "alert.updated"))
+    if escalated:
+        await _enqueue_dispatch(alert)
+    return alert
+
+
 async def create_alert(db: AsyncSession, payload: AlertCreate) -> Alert:
+    now = datetime.now(timezone.utc)
+    existing = await _find_group(db, payload, now)
+    if existing is not None:
+        return await _join_group(db, existing, payload, now)
+
     event = Event(
         camera_id=payload.camera_id,
         zone_id=payload.zone_id,
@@ -76,7 +136,7 @@ async def create_alert(db: AsyncSession, payload: AlertCreate) -> Alert:
             "map_y": payload.map_y,
             **{k: v for k, v in payload.metadata.items() if k in ("track_ids", "floor_id")},
         },
-        occurred_at=datetime.now(timezone.utc),
+        occurred_at=now,
     )
     db.add(event)
     await db.flush()

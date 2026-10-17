@@ -13,12 +13,12 @@ PREVIEW_JPEG_QUALITY = 70
 
 
 def _speed_color(speed_mps: float) -> tuple[int, int, int]:
-    """BGR: calm walkers in cyan, fast movers shift to amber then red."""
+    """BGR: calm walkers in paper, fast movers shift to the brand amber then red."""
     if speed_mps >= 3.0:
         return (60, 60, 235)
     if speed_mps >= 2.0:
-        return (40, 170, 245)
-    return (230, 200, 60)
+        return (59, 169, 242)
+    return (222, 232, 236)
 
 
 def annotate(image: np.ndarray, analysis: FrameAnalysis) -> np.ndarray:
@@ -26,7 +26,10 @@ def annotate(image: np.ndarray, analysis: FrameAnalysis) -> np.ndarray:
     for obs in analysis.observations:
         p = obs.person
         color = _speed_color(obs.kinematics.speed_mps)
-        cv2.rectangle(out, (int(p.x1), int(p.y1)), (int(p.x2), int(p.y2)), color, 2, cv2.LINE_AA)
+        fast = obs.kinematics.speed_mps >= 2.0
+        cv2.rectangle(out, (int(p.x1), int(p.y1)), (int(p.x2), int(p.y2)), color, 2 if fast else 1, cv2.LINE_AA)
+        if not fast:
+            continue  # a label on every walker turns a crowded tile into noise; only fast movers get one
         label = f"#{p.track_id} {obs.kinematics.speed_mps:.1f}m/s"
         cv2.putText(
             out, label, (int(p.x1), max(12, int(p.y1) - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1, cv2.LINE_AA

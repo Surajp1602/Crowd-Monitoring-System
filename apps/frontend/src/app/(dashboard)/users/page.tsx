@@ -155,7 +155,7 @@ export default function UsersPage() {
           {isLoading ? (
             <Skeleton className="h-48 w-full" />
           ) : (
-            <Table>
+            <Table className="table-stack">
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
@@ -174,12 +174,12 @@ export default function UsersPage() {
                       <p className="text-paper">{u.full_name}</p>
                       <p className="text-xs text-paper-faint">{u.email}</p>
                     </TableCell>
-                    <TableCell className="text-paper-dim">{ROLE_LABEL[u.role?.name ?? ""] ?? u.role?.name ?? "—"}</TableCell>
-                    <TableCell className="num text-xs text-paper-dim">{u.phone_number ?? "—"}</TableCell>
-                    <TableCell>{u.notify_enabled ? <Badge variant="success">On</Badge> : <Badge variant="muted">Off</Badge>}</TableCell>
-                    <TableCell className="text-paper-dim">{relativeTime(u.last_login_at)}</TableCell>
-                    <TableCell>{u.is_active ? <Badge variant="outline">Active</Badge> : <Badge variant="muted">Disabled</Badge>}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell data-label="Role" className="text-paper-dim">{ROLE_LABEL[u.role?.name ?? ""] ?? u.role?.name ?? "—"}</TableCell>
+                    <TableCell data-label="Mobile" className="num text-xs text-paper-dim">{u.phone_number ?? "—"}</TableCell>
+                    <TableCell data-label="Alerts">{u.notify_enabled ? <Badge variant="success">On</Badge> : <Badge variant="muted">Off</Badge>}</TableCell>
+                    <TableCell data-label="Last sign-in" className="num text-xs text-paper-dim">{relativeTime(u.last_login_at)}</TableCell>
+                    <TableCell data-label="Status">{u.is_active ? <Badge variant="outline">Active</Badge> : <Badge variant="muted">Disabled</Badge>}</TableCell>
+                    <TableCell data-label="Actions" className="text-right">
                       <Button size="sm" variant="ghost" onClick={() => setEditing(u)}>Edit</Button>
                       {u.role?.name !== "admin" && (
                         <Button size="sm" variant="ghost" onClick={async () => {

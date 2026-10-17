@@ -73,8 +73,9 @@ async def test_zone_comparison_and_peak_hours(client, admin_credentials, db_sess
 async def test_alerts_by_day(client, admin_credentials):
     headers = await _admin(client, admin_credentials)
     internal = {"X-Internal-Api-Key": "dev-internal-service-key-change-me"}
-    for severity in ("critical", "high", "high"):
-        await client.post("/api/v1/alerts", headers=internal, json={"alert_type": "panic", "severity": severity, "title": "x"})
+    # Different types, so the three do not group into one alert.
+    for alert_type, severity in (("panic", "critical"), ("fighting", "high"), ("running", "high")):
+        await client.post("/api/v1/alerts", headers=internal, json={"alert_type": alert_type, "severity": severity, "title": "x"})
     [day] = (await client.get("/api/v1/analytics/alerts-by-day", headers=headers)).json()
     assert day["critical"] == 1 and day["high"] == 2 and day["total"] == 3
 

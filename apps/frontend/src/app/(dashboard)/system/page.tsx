@@ -108,14 +108,14 @@ export default function SystemPage() {
           const st = STATUS_STYLE[s?.status ?? "down"];
           return (
             <div key={key} className="min-w-0 px-5 py-4">
-              <div className="flex items-center justify-between gap-2">
-                <p className="eyebrow truncate">{name}</p>
+              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+                <p className="eyebrow">{name}</p>
                 {isLoading ? <Skeleton className="h-4 w-12" /> : <Badge variant={st.badge} dot>{st.label}</Badge>}
               </div>
               <p className="mt-1 text-xs text-paper-faint">{role}</p>
               <ul className="mt-3 space-y-1">
                 {s && detail(key, s).map((line) => (
-                  <li key={line} className={cn("num truncate text-xs", s.error && line === s.error ? "text-severity-high" : "text-paper-dim")}>
+                  <li key={line} className={cn("num text-xs [overflow-wrap:anywhere]", s.error && line === s.error ? "text-severity-high" : "text-paper-dim")}>
                     {line}
                   </li>
                 ))}

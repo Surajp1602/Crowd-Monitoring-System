@@ -31,7 +31,8 @@ const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 function timeLabel(iso: string, bucket: string) {
   const d = new Date(iso);
   if (bucket === "day") return d.toLocaleDateString([], { month: "short", day: "numeric" });
-  if (bucket === "hour") return d.toLocaleString([], { weekday: "short", hour: "2-digit", hour12: false });
+  // Spelled out as "Mon 18:00": the locale's "Mon, 18" reads as a day of the month.
+  if (bucket === "hour") return `${d.toLocaleDateString([], { weekday: "short" })} ${String(d.getHours()).padStart(2, "0")}:00`;
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
@@ -326,7 +327,7 @@ export default function AnalyticsPage() {
                     <CartesianGrid vertical={false} stroke={AXIS.grid} />
                     <XAxis dataKey="day" tickFormatter={(d) => new Date(d).toLocaleDateString([], { month: "short", day: "numeric" })}
                       stroke={AXIS.stroke} tick={AXIS.tick} tickLine={false} />
-                    <YAxis allowDecimals={false} stroke={AXIS.stroke} tick={AXIS.tick} tickLine={false} axisLine={false} width={40} />
+                    <YAxis allowDecimals={false} stroke={AXIS.stroke} tick={AXIS.tick} tickLine={false} axisLine={false} width={48} tickFormatter={(v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v))} />
                     <Tooltip
                       cursor={{ fill: "rgb(236 232 222 / 0.05)" }}
                       content={({ active, payload }) =>

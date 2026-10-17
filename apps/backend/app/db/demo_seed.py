@@ -15,8 +15,8 @@ import logging
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from common.enums import CameraStatus, StreamType, ZoneType
-from common.models import Building, Camera, Floor, Zone
+from common.enums import CameraStatus, RoleName, StreamType, ZoneType
+from common.models import Building, Camera, Floor, Role, User, Zone
 
 logger = logging.getLogger("ccd.seed.demo")
 
@@ -194,3 +194,28 @@ def _contains(polygon: list[dict], x: float, y: float) -> bool:
     xs = [p["x"] for p in polygon]
     ys = [p["y"] for p in polygon]
     return min(xs) <= x <= max(xs) and min(ys) <= y <= max(ys)
+
+
+DEMO_TEAM = [
+    ("Amara Okafor", "amara.okafor@demo.ccd-platform.com", RoleName.SUPERVISOR, "+44 7700 900112"),
+    ("Daniel Reyes", "daniel.reyes@demo.ccd-platform.com", RoleName.SECURITY_OFFICER, "+44 7700 900245"),
+    ("Priya Nair", "priya.nair@demo.ccd-platform.com", RoleName.SECURITY_OFFICER, "+44 7700 900378"),
+    ("Tom Hargreaves", "tom.hargreaves@demo.ccd-platform.com", RoleName.VIEWER, None),
+]
+
+
+async def seed_demo_team(db: AsyncSession) -> int:
+    """A control-room roster for the demo station, one per role. The accounts have no password,
+    so nobody can sign in as them until an administrator sets one. Returns how many were added."""
+    roles = {r.name: r.id for r in (await db.execute(select(Role))).scalars()}
+    existing = set((await db.execute(select(User.email))).scalars())
+    added = 0
+    for name, email, role, phone in DEMO_TEAM:
+        if email in existing or role.value not in roles:
+            continue
+        db.add(User(email=email, hashed_password=None, full_name=name, role_id=roles[role.value], phone_number=phone))
+        added += 1
+    if added:
+        await db.flush()
+        logger.info("Seeded %d demo team members", added)
+    return added

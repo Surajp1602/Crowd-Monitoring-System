@@ -166,25 +166,26 @@ export default function MapPage() {
 
             {floor && (
               <>
-                <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+                {/* One toolbar that wraps: on a phone the layer toggles drop below the view switcher. */}
+                <div className="absolute inset-x-3 top-3 flex flex-wrap items-start justify-between gap-2">
                   <Segmented label="View" value={preset} options={PRESETS} onChange={setPreset} />
-                </div>
-                <div className="absolute right-3 top-3 flex flex-wrap justify-end gap-1">
-                  {(Object.keys(layers) as (keyof SceneLayers)[]).map((key) => (
-                    <button
-                      key={key}
-                      aria-pressed={layers[key]}
-                      onClick={() => setLayers((l) => ({ ...l, [key]: !l[key] }))}
-                      className={cn(
-                        "rounded-[3px] border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.06em] transition-colors",
-                        layers[key]
-                          ? "border-rule-strong bg-ink/90 text-paper"
-                          : "border-rule bg-ink/70 text-paper-faint line-through"
-                      )}
-                    >
-                      {key}
-                    </button>
-                  ))}
+                  <div role="group" aria-label="Layers" className="flex flex-wrap justify-end gap-1">
+                    {(Object.keys(layers) as (keyof SceneLayers)[]).map((key) => (
+                      <button
+                        key={key}
+                        aria-pressed={layers[key]}
+                        onClick={() => setLayers((l) => ({ ...l, [key]: !l[key] }))}
+                        className={cn(
+                          "rounded-[3px] border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.06em] transition-colors",
+                          layers[key]
+                            ? "border-rule-strong bg-ink/90 text-paper"
+                            : "border-rule bg-ink/70 text-paper-faint line-through"
+                        )}
+                      >
+                        {key}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="absolute inset-x-3 bottom-3 flex flex-wrap items-end justify-between gap-2">
                   <div className="rounded-[4px] border border-rule bg-ink/90 px-3 py-2">

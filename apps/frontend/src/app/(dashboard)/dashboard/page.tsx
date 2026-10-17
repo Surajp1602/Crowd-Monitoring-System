@@ -27,8 +27,11 @@ export default function DashboardPage() {
   const peoplePresent = liveCounts.length
     ? liveCounts.reduce((sum, c) => sum + (c.summary?.person_count ?? 0), 0)
     : (summary.data?.total_people ?? 0);
-  const online = Object.values(live).filter((c) => c.health?.status === "online").length;
-  const camerasOnline = online || summary.data?.cameras_online || 0;
+  // Same rule as the camera table: the live heartbeat when one has arrived, else the stored status.
+  // (Counting only live entries reads "1/8" while the first heartbeats are still arriving.)
+  const camerasOnline = cameras.data
+    ? cameras.data.items.filter((c) => c.is_active && (live[c.id]?.health?.status ?? c.status) === "online").length
+    : (summary.data?.cameras_online ?? 0);
   const camerasTotal = cameras.data?.total ?? summary.data?.cameras_total ?? 0;
   const peakFloor = Object.values(peaks).sort((a, b) => b.maxDensity - a.maxDensity)[0];
   const peakDensity = peakFloor?.maxDensity ?? 0;

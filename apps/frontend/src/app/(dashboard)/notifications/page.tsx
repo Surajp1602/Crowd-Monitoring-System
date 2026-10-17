@@ -42,6 +42,12 @@ const SEVERITIES = ["low", "medium", "high", "critical", "never"];
 const tabClass =
   "rounded-[3px] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.06em] text-paper-faint transition-colors hover:text-paper data-[state=active]:bg-ink-4 data-[state=active]:text-paper";
 
+/** Worker uptime at its last heartbeat, as "3h 12m". */
+function uptime(heartbeatTs: number, startedAt: string) {
+  const mins = Math.max(0, Math.round((heartbeatTs * 1000 - Date.parse(startedAt)) / 60_000));
+  return mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+}
+
 function History() {
   const [page, setPage] = useState(1);
   const [channel, setChannel] = useState<Channel | "">("");
@@ -74,7 +80,7 @@ function History() {
             Nothing sent yet. High and critical alerts are delivered here as they happen.
           </p>
         ) : (
-          <Table>
+          <Table className="table-stack">
             <TableHeader>
               <TableRow>
                 <TableHead>When</TableHead>
@@ -89,18 +95,18 @@ function History() {
             <TableBody>
               {data.items.map((n) => (
                 <TableRow key={n.id}>
-                  <TableCell className="text-paper-dim">{relativeTime(n.created_at)}</TableCell>
-                  <TableCell>{CHANNEL_LABEL[n.channel]}</TableCell>
-                  <TableCell className="num text-xs">{n.recipient}</TableCell>
-                  <TableCell className="font-mono text-[11px] uppercase text-paper-dim">{String(n.provider_response.audience ?? "—")}</TableCell>
-                  <TableCell>
+                  <TableCell className="num text-xs text-paper-dim">{relativeTime(n.created_at)}</TableCell>
+                  <TableCell data-label="Channel">{CHANNEL_LABEL[n.channel]}</TableCell>
+                  <TableCell data-label="Recipient" className="num text-xs">{n.recipient}</TableCell>
+                  <TableCell data-label="Audience" className="font-mono text-[11px] uppercase text-paper-dim">{String(n.provider_response.audience ?? "—")}</TableCell>
+                  <TableCell data-label="Result">
                     <Badge variant={n.status === "sent" ? "success" : n.status === "failed" ? "destructive" : "muted"}
                       title={n.status === "failed" ? JSON.stringify(n.provider_response) : undefined}>
                       {n.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="font-mono text-[11px] text-paper-dim">{n.provider}</TableCell>
-                  <TableCell>
+                  <TableCell data-label="Provider" className="font-mono text-[11px] text-paper-dim">{n.provider}</TableCell>
+                  <TableCell data-label="Alert">
                     {n.alert_id ? (
                       <Link className="text-xs text-amber hover:underline" href={`/alerts?focus=${n.alert_id}`}>Open</Link>
                     ) : (
@@ -144,7 +150,7 @@ function Subscribers() {
         ) : !data?.items.length ? (
           <p className="py-10 text-center text-sm text-paper-dim">No subscribers yet.</p>
         ) : (
-          <Table>
+          <Table className="table-stack">
             <TableHeader>
               <TableRow>
                 <TableHead>Contact</TableHead>
@@ -159,11 +165,11 @@ function Subscribers() {
               {data.items.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell className="num text-xs">{s.display_name ? `${s.display_name} · ` : ""}{s.contact}</TableCell>
-                  <TableCell className="text-paper-dim">{s.channels.map((c) => CHANNEL_LABEL[c]).join(", ")}</TableCell>
-                  <TableCell className="num text-right">{s.radius_m} m</TableCell>
-                  <TableCell className="num text-xs text-paper-dim">{s.latitude.toFixed(4)}, {s.longitude.toFixed(4)}</TableCell>
-                  <TableCell className="text-paper-dim">{relativeTime(s.created_at)}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell data-label="Channels" className="text-paper-dim">{s.channels.map((c) => CHANNEL_LABEL[c]).join(", ")}</TableCell>
+                  <TableCell data-label="Radius" className="num text-right">{s.radius_m} m</TableCell>
+                  <TableCell data-label="Location" className="num text-xs text-paper-dim">{s.latitude.toFixed(4)}, {s.longitude.toFixed(4)}</TableCell>
+                  <TableCell data-label="Joined" className="num text-xs text-paper-dim">{relativeTime(s.created_at)}</TableCell>
+                  <TableCell data-label="Remove" className="text-right">
                     <Button size="icon" variant="ghost" aria-label={`Remove subscriber ${s.contact}`}
                       onClick={async () => {
                         if (!window.confirm("Remove this subscriber? They will stop receiving notices.")) return;
@@ -370,7 +376,7 @@ export default function NotificationsPage() {
       <InstrumentStrip
         loading={status.isLoading}
         readouts={[
-          { label: "Dispatcher", value: status.data?.worker_online ? "Online" : "Offline", tone: status.data?.worker_online ? "ok" : "critical", detail: w ? `consumer ${w.consumer}` : "No heartbeat" },
+          { label: "Dispatcher", value: status.data?.worker_online ? "Online" : "Offline", tone: status.data?.worker_online ? "ok" : "critical", detail: w ? `${w.sent} sent · up ${uptime(w.ts, w.started_at)}` : "No heartbeat" },
           { label: "Channels ready", value: `${ready}/${ALL_CHANNELS.length}`, detail: "Configured on the worker" },
           { label: "Sent", value: w?.sent ?? 0, detail: "Since the worker started" },
           { label: "Failed", value: w?.failed ?? 0, tone: (w?.failed ?? 0) > 0 ? "amber" : "default", detail: "After retries" },

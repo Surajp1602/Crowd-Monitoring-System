@@ -43,11 +43,16 @@ export default function LoginPage() {
         </div>
       </section>
 
-      <section className="flex flex-col justify-center px-6 py-12 sm:px-12 lg:col-span-5 lg:px-16">
-        <div className="mb-10 lg:hidden">
+      <section className="relative flex flex-col justify-center overflow-hidden px-6 py-12 sm:px-12 lg:col-span-5 lg:px-16">
+        {/* Phones keep the signature: a strip of the contour field above the form. */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[38%] lg:hidden" aria-hidden="true">
+          <ContourField className="h-full w-full opacity-70" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-ink/60 to-ink" />
+        </div>
+        <div className="relative mb-10 lg:hidden">
           <Wordmark />
         </div>
-        <div className="w-full max-w-sm">
+        <div className="relative w-full max-w-sm">
           <p className="eyebrow mb-3">Sign in</p>
           <h2 className="display mb-8 text-3xl text-paper">Operator access</h2>
           <LoginForm />

@@ -176,6 +176,9 @@ export interface Alert {
     track_ids?: number[];
     floor_id?: string | null;
     people_in_view?: number;
+    /** Repeats grouped into this alert by the backend, counting the first. */
+    occurrences?: number;
+    last_seen_at?: string;
     [key: string]: unknown;
   };
   created_at: string;

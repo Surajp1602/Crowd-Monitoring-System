@@ -49,7 +49,7 @@ export interface NotificationRules {
 }
 
 export function useNotificationHistory(page: number, channel?: Channel | "", status?: string) {
-  const q = new URLSearchParams({ page: String(page), page_size: "50" });
+  const q = new URLSearchParams({ page: String(page), page_size: "25" });
   if (channel) q.set("channel", channel);
   if (status) q.set("status", status);
   return useQuery({

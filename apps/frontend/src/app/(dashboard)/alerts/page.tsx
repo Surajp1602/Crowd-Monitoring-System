@@ -2,7 +2,7 @@
 
 import { Check, CircleCheck, RotateCcw, ShieldX } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
 import { FloorPlan } from "@/components/map/floor-plan";
@@ -123,6 +123,8 @@ function AlertDetail({ id, canManage }: { id: string; canManage: boolean }) {
             ["Camera", camera?.name ?? "—"],
             ["Zone", zone?.name ?? "—"],
             ["People in view", alert.metadata?.people_in_view != null ? String(alert.metadata.people_in_view) : "—"],
+            ["Occurrences", String(alert.metadata?.occurrences ?? 1)],
+            ["Last seen", relativeTime(alert.metadata?.last_seen_at ?? alert.created_at)],
             ["Acknowledged", alert.acknowledged_at ? relativeTime(alert.acknowledged_at) : "—"],
           ].map(([k, v]) => (
             <div key={k}>
@@ -196,6 +198,11 @@ function AlertsView() {
   // Selection is always explicit: auto-following the newest alert would swap the
   // detail panel out from under an operator mid-read whenever a new alert arrives.
   const selectedId = pickedId;
+  const detailRef = useRef<HTMLDivElement>(null);
+  // Below the two-column layout the detail sits under the list: bring it into view when picked.
+  useEffect(() => {
+    if (pickedId && window.innerWidth < 1280) detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [pickedId]);
   const cameraName = (id: string | null) => cameras.data?.items.find((c) => c.id === id)?.name;
   const pages = data ? Math.max(1, Math.ceil(data.total / data.page_size)) : 1;
 
@@ -237,7 +244,7 @@ function AlertsView() {
       />
 
       <div className="flex flex-wrap items-center gap-2">
-        <div role="tablist" aria-label="Status" className="flex flex-wrap gap-1">
+        <div role="group" aria-label="Status" className="flex flex-wrap gap-1">
           {STATUS_VIEWS.map((v) => (
             <Chip key={v.id} active={view === v.id} onClick={() => { setView(v.id); setPage(1); setPickedId(null); }}>
               {v.label}
@@ -272,8 +279,8 @@ function AlertsView() {
         </label>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_440px]">
-        <section className="panel flex min-h-[560px] flex-col" aria-label="Alert list">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1fr)_440px]">
+        <section className="panel flex min-h-[560px] min-w-0 flex-col" aria-label="Alert list">
           {canManage && checked.size > 0 && (
             <div className="flex flex-wrap items-center gap-2 border-b border-rule bg-ink-3/60 px-4 py-2">
               <span className="num text-xs text-paper">{checked.size} selected</span>
@@ -331,7 +338,10 @@ function AlertsView() {
                       <span className="block truncate text-[13.5px] text-paper">{alert.title}</span>
                       <span className="block truncate font-mono text-[10px] uppercase tracking-[0.06em] text-paper-faint">
                         {formatAlertType(alert.alert_type)}
-                        {cameraName(alert.camera_id) && ` · ${cameraName(alert.camera_id)}`} · {relativeTime(alert.created_at)}
+                        {cameraName(alert.camera_id) && ` · via ${cameraName(alert.camera_id)} cam`} ·{" "}
+                        {(alert.metadata?.occurrences ?? 1) > 1
+                          ? `×${alert.metadata.occurrences} · last ${relativeTime(alert.metadata.last_seen_at ?? alert.created_at)}`
+                          : relativeTime(alert.created_at)}
                       </span>
                     </span>
                     <span className="flex shrink-0 items-center gap-2">
@@ -356,11 +366,11 @@ function AlertsView() {
           )}
         </section>
 
-        <div className="xl:sticky xl:top-20 xl:self-start">
+        <div ref={detailRef} className="scroll-mt-20 xl:sticky xl:top-20 xl:self-start">
           {selectedId ? (
             <AlertDetail id={selectedId} canManage={canManage} />
           ) : (
-            <div className="panel flex h-[560px] items-center justify-center p-8 text-center text-sm text-paper-dim">
+            <div className="panel hidden h-[560px] items-center justify-center xl:flex p-8 text-center text-sm text-paper-dim">
               Select an alert to see its snapshot, location and actions.
             </div>
           )}

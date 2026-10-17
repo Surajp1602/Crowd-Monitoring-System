@@ -90,7 +90,7 @@ export function CameraTile({
         </div>
         {frame && online && (
           <div className="absolute bottom-2 right-2 rounded-[3px] bg-black/65 px-1.5 py-0.5 font-mono text-[11px] text-paper">
-            {frame.person_count} ppl
+            {frame.person_count === 0 ? "No one in view" : `${frame.person_count} ppl`}
           </div>
         )}
       </div>

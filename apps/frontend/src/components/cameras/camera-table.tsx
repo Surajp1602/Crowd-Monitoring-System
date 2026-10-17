@@ -61,7 +61,7 @@ export function CameraTable() {
 
   return (
     <>
-      <Table>
+      <Table className="table-stack">
         <TableHeader>
           <TableRow>
             <TableHead>Camera</TableHead>
@@ -89,19 +89,19 @@ export function CameraTable() {
                   <p className="text-paper">{camera.name}</p>
                   <p className="font-mono text-[10px] uppercase tracking-[0.06em] text-paper-faint">{camera.code}</p>
                 </TableCell>
-                <TableCell className="font-mono text-[11px] uppercase text-paper-dim">{camera.stream_type}</TableCell>
-                <TableCell className="text-paper-dim">{floorName(camera.floor_id)}</TableCell>
-                <TableCell>
+                <TableCell data-label="Source" className="font-mono text-[11px] uppercase text-paper-dim">{camera.stream_type}</TableCell>
+                <TableCell data-label="Floor" className="text-paper-dim">{floorName(camera.floor_id)}</TableCell>
+                <TableCell data-label="Status">
                   <Badge variant={badge.variant} dot title={health?.error ?? camera.last_error ?? undefined}>
                     {badge.label}
                   </Badge>
                 </TableCell>
-                <TableCell className="num text-right">{summary ? summary.person_count : "—"}</TableCell>
-                <TableCell className="num text-right">{fps > 0 ? fps.toFixed(1) : "—"}</TableCell>
-                <TableCell className="num text-right">{latency > 0 ? `${latency.toFixed(0)} ms` : "—"}</TableCell>
-                <TableCell className="text-paper-dim">{relativeTime(health?.ts ?? camera.last_seen_at)}</TableCell>
+                <TableCell data-label="People" className="num text-right">{summary ? summary.person_count : "—"}</TableCell>
+                <TableCell data-label="FPS" className="num text-right">{fps > 0 ? fps.toFixed(1) : "—"}</TableCell>
+                <TableCell data-label="Latency" className="num text-right">{latency > 0 ? `${latency.toFixed(0)} ms` : "—"}</TableCell>
+                <TableCell data-label="Last seen" className="num text-xs text-paper-dim">{relativeTime(health?.ts ?? camera.last_seen_at)}</TableCell>
                 {canManage && (
-                  <TableCell className="text-right">
+                  <TableCell data-label="Actions" className="text-right">
                     <Button variant="ghost" size="icon" aria-label={`Edit ${camera.name}`} onClick={() => setEditing(camera)}>
                       <Pencil />
                     </Button>

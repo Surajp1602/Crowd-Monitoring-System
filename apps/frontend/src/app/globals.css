@@ -16,7 +16,7 @@
   --rule-strong: rgb(232 228 216 / 0.16);
   --paper: #ece8de;
   --paper-dim: #a4a69c;
-  --paper-faint: #73766d;
+  --paper-faint: #8b8e84;
   --amber: #f2a93b;
   --amber-deep: #b8741a;
 
@@ -198,5 +198,25 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Tables become labelled cards on phones: add className="table-stack" and data-label on each cell. */
+@media (max-width: 639px) {
+  .table-stack thead { display: none; }
+  .table-stack, .table-stack tbody, .table-stack tr, .table-stack td { display: block; width: 100%; }
+  .table-stack tr { padding: 0.75rem 0; }
+  .table-stack td { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; padding: 0.2rem 0; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+  .table-stack td:first-child { display: block; padding-bottom: 0.4rem; text-align: left; }
+  .table-stack td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    margin-right: auto;
+    padding-right: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--paper-faint);
   }
 }
