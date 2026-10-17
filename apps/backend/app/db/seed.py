@@ -68,10 +68,17 @@ async def seed_first_admin(db: AsyncSession, roles: dict[str, Role]) -> None:
 
 
 async def seed_default_settings(db: AsyncSession) -> None:
-    existing = {s.key for s in (await db.execute(select(Setting))).scalars().all()}
+    """Inserts missing settings and back-fills sub-keys added by newer releases,
+    never overwriting a value an operator has changed."""
+    existing = {s.key: s for s in (await db.execute(select(Setting))).scalars().all()}
     for key, value in DEFAULT_SETTINGS.items():
-        if key not in existing:
+        row = existing.get(key)
+        if row is None:
             db.add(Setting(key=key, value=value))
+        elif isinstance(row.value, dict):
+            missing = {k: v for k, v in value.items() if k not in row.value}
+            if missing:
+                row.value = {**row.value, **missing}
 
 
 async def run_seed(db: AsyncSession) -> None:

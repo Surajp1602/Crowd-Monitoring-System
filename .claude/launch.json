@@ -50,6 +50,25 @@
         "MEDIA_DIR": "D:/crowd-density/media"
       },
       "port": 8080
+    },
+    {
+      "name": "worker",
+      "runtimeExecutable": "D:/crowd-density/apps/worker/.venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "app.main"
+      ],
+      "cwd": "apps/worker",
+      "env": {
+        "DATABASE_URL": "postgresql+asyncpg://ccd:ccd@localhost:5433/ccd",
+        "REDIS_URL": "redis://localhost:6379/0",
+        "NOTIFICATION_EMAIL_PROVIDER": "console",
+        "NOTIFICATION_SMS_PROVIDER": "console",
+        "NOTIFICATION_WHATSAPP_PROVIDER": "console",
+        "NOTIFICATION_PUSH_PROVIDER": "console",
+        "NOTIFICATION_ANNOUNCEMENT_PROVIDER": "console"
+      },
+      "port": 8090
     }
   ]
 }

@@ -66,4 +66,4 @@ export function visibleNav(permissions: string[], isGuest: boolean, implemented:
 }
 
 /** Routes that exist so far; the nav never links to a page that isn't built. */
-export const IMPLEMENTED_ROUTES = new Set(["/dashboard", "/live", "/map", "/alerts", "/cameras"]);
+export const IMPLEMENTED_ROUTES = new Set(["/dashboard", "/live", "/map", "/alerts", "/cameras", "/notifications"]);

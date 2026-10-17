@@ -51,7 +51,12 @@ async def register_user(payload: UserCreate, db: DbSession):
     if payload.role_name == "admin":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot self-service create admin accounts")
     user = await auth_service.create_user(
-        db, email=payload.email, password=payload.password, full_name=payload.full_name, role_name=payload.role_name
+        db,
+        email=payload.email,
+        password=payload.password,
+        full_name=payload.full_name,
+        role_name=payload.role_name,
+        phone_number=payload.phone_number,
     )
     return UserRead.model_validate(user)
 

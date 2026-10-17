@@ -46,7 +46,14 @@ DEFAULT_SETTINGS: dict[str, dict] = {
         "grid_resolution_m": 0.5,
     },
     "notifications": {
-        "enabled_channels": ["push", "email"],
+        "enabled_channels": ["push", "sms", "whatsapp", "email", "public_announcement"],
         "default_geofence_radius_m": 200,
+        "staff_min_severity": "high",
+        "staff_channels": ["email", "sms"],
+        "public_min_severity": "critical",
+        "public_channels": ["push", "sms", "whatsapp", "email"],
+        "announcement_min_severity": "critical",
+        "recipient_cooldown_s": 300,
+        "muted_alert_types": [],
     },
 }
