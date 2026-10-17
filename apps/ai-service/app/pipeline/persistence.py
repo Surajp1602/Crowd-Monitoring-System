@@ -54,7 +54,10 @@ async def upsert_tracks(camera_id: uuid.UUID, observations: list[PersonObservati
             k = obs.kinematics
             track = existing.get(obs.person.track_id)
             if track is None:
+                # Client-side id: the TrackPoint below can reference it without a
+                # per-person flush, so the whole batch is written in one round trip.
                 track = Track(
+                    id=uuid.uuid4(),
                     camera_id=camera_id,
                     local_track_id=obs.person.track_id,
                     global_person_id=obs.global_id,
@@ -69,7 +72,6 @@ async def upsert_tracks(camera_id: uuid.UUID, observations: list[PersonObservati
             track.last_speed_mps = k.speed_mps
             track.last_direction_deg = k.direction_deg
             track.dwell_time_s = k.dwell_time_s
-            await db.flush()
             db.add(
                 TrackPoint(
                     track_id=track.id,

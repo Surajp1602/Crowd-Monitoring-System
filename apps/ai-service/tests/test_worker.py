@@ -21,7 +21,10 @@ async def test_simulated_worker_publishes_frames_tracks_and_health(monkeypatch):
         return _inner
 
     monkeypatch.setattr(worker_module, "publish_detection_frame", await record("frames"))
-    monkeypatch.setattr(worker_module, "publish_track_update", await record("tracks"))
+    async def record_tracks(messages):
+        published["tracks"].extend(messages)
+
+    monkeypatch.setattr(worker_module, "publish_track_updates", record_tracks)
     monkeypatch.setattr(worker_module, "publish_camera_health", await record("health"))
 
     async def fake_persist(*args, **kwargs):

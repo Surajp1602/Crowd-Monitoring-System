@@ -10,7 +10,22 @@ import {
   isolines,
 } from "@/lib/isolines";
 import type { HeatmapFrame, LivePerson } from "@/lib/live-types";
-import type { Camera, Floor, FloorLayout, Zone } from "@/lib/types";
+import type { Camera, Floor, FloorLayout, Wall, Zone } from "@/lib/types";
+
+export interface PlanPoint {
+  x: number;
+  y: number;
+}
+
+/** In-progress edits drawn over the plan by the map editor. */
+export interface PlanDraft {
+  polygon?: PlanPoint[];
+  walls?: Wall[];
+  /** Rubber band from the last placed point to the cursor. */
+  from?: PlanPoint | null;
+  cursor?: PlanPoint | null;
+  selectedCameraId?: string | null;
+}
 import { cn } from "@/lib/utils";
 
 interface FloorPlanProps {
@@ -21,7 +36,10 @@ interface FloorPlanProps {
   people?: LivePerson[];
   highlightZoneId?: string | null;
   onZoneClick?: (zone: Zone) => void;
-  onFloorClick?: (point: { x: number; y: number }) => void;
+  onFloorClick?: (point: PlanPoint) => void;
+  onFloorDoubleClick?: (point: PlanPoint) => void;
+  onHover?: (point: PlanPoint | null) => void;
+  draft?: PlanDraft;
   className?: string;
   /** Hide labels and cameras for small thumbnails. */
   compact?: boolean;
@@ -52,6 +70,9 @@ export function FloorPlan({
   highlightZoneId,
   onZoneClick,
   onFloorClick,
+  onFloorDoubleClick,
+  onHover,
+  draft,
   className,
   compact,
 }: FloorPlanProps) {
@@ -213,24 +234,29 @@ export function FloorPlan({
 
     // Structure on top of the field so walls always read.
     const layout = (floor.layout ?? {}) as FloorLayout;
+    const walls = draft?.walls ?? layout.walls ?? [];
     ctx.strokeStyle = "rgb(236 232 222 / 0.7)";
     ctx.lineWidth = 2;
     ctx.lineCap = "square";
     ctx.beginPath();
-    for (const w of layout.walls ?? []) {
+    for (const w of walls) {
       const [a, b] = toPx(w.x1, w.y1);
       const [c, d] = toPx(w.x2, w.y2);
       ctx.moveTo(a, b);
       ctx.lineTo(c, d);
     }
     ctx.stroke();
-    if (!layout.walls?.length) {
+    if (!walls.length) {
       ctx.strokeStyle = "rgb(236 232 222 / 0.35)";
       ctx.lineWidth = 1;
       ctx.strokeRect(ox + 0.5, oy + 0.5, fw - 1, fd - 1);
     }
 
     if (!compact) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(ox, oy, fw, fd);
+      ctx.clip();
       for (const cam of cameras) {
         const [cx, cy] = toPx(cam.map_x, cam.map_y);
         const r = cam.range_m * scale;
@@ -241,14 +267,16 @@ export function FloorPlan({
         ctx.moveTo(cx, cy);
         ctx.arc(cx, cy, r, yaw - half, yaw + half);
         ctx.closePath();
-        ctx.fillStyle = "rgb(242 169 59 / 0.045)";
+        const picked = cam.id === draft?.selectedCameraId;
+        ctx.fillStyle = picked ? "rgb(242 169 59 / 0.16)" : "rgb(242 169 59 / 0.045)";
         ctx.fill();
-        ctx.strokeStyle = "rgb(242 169 59 / 0.28)";
+        ctx.strokeStyle = picked ? "rgb(242 169 59 / 0.9)" : "rgb(242 169 59 / 0.28)";
         ctx.lineWidth = 1;
         ctx.stroke();
         ctx.fillStyle = cam.status === "online" ? "#f2a93b" : "#73766d";
         ctx.fillRect(cx - 3, cy - 3, 6, 6);
       }
+      ctx.restore();
     }
 
     for (const p of people) {
@@ -277,7 +305,55 @@ export function FloorPlan({
         }
       }
     }
-  }, [size, view, floor, zones, cameras, field, people, highlightZoneId, compact, occupancy]);
+
+    if (draft) {
+      ctx.strokeStyle = "#f2a93b";
+      ctx.fillStyle = "rgb(242 169 59 / 0.12)";
+      ctx.lineWidth = 1.5;
+      const poly = draft.polygon ?? [];
+      if (poly.length) {
+        ctx.beginPath();
+        poly.forEach((p, i) => {
+          const [px, py] = toPx(p.x, p.y);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        if (poly.length >= 3) {
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.stroke();
+        for (const p of poly) {
+          const [px, py] = toPx(p.x, p.y);
+          ctx.fillStyle = "#f2a93b";
+          ctx.fillRect(px - 3, py - 3, 6, 6);
+        }
+      }
+      if (draft.from && draft.cursor) {
+        const [a, b] = toPx(draft.from.x, draft.from.y);
+        const [c, d] = toPx(draft.cursor.x, draft.cursor.y);
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(a, b);
+        ctx.lineTo(c, d);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font = '500 10px "JetBrains Mono Variable", monospace';
+        ctx.fillStyle = "#f2a93b";
+        ctx.fillText(`${Math.hypot(draft.cursor.x - draft.from.x, draft.cursor.y - draft.from.y).toFixed(1)} m`, c + 8, d - 8);
+      }
+      if (draft.cursor) {
+        const [c, d] = toPx(draft.cursor.x, draft.cursor.y);
+        ctx.strokeStyle = "rgb(242 169 59 / 0.8)";
+        ctx.beginPath();
+        ctx.moveTo(c - 6, d);
+        ctx.lineTo(c + 6, d);
+        ctx.moveTo(c, d - 6);
+        ctx.lineTo(c, d + 6);
+        ctx.stroke();
+      }
+    }
+  }, [size, view, floor, zones, cameras, field, people, highlightZoneId, compact, occupancy, draft]);
 
   const hoverZone = useMemo(() => {
     if (!hover) return null;
@@ -293,7 +369,15 @@ export function FloorPlan({
     return decodeHeatmap(hm)[r * hm.cols + c] ?? null;
   }, [hover, field]);
 
-  const interactive = Boolean(onZoneClick || onFloorClick);
+  const interactive = Boolean(onZoneClick || onFloorClick || draft);
+
+  // Clicks resolve their own position: hover state can lag a click that arrives
+  // without a preceding mouse move (touch, pen, synthetic events).
+  function pointFromEvent(e: React.MouseEvent<HTMLDivElement>): PlanPoint | null {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const { x, y } = view.toFloor(e.clientX - rect.left, e.clientY - rect.top);
+    return x >= 0 && y >= 0 && x <= floor.width_m && y <= floor.depth_m ? { x, y } : null;
+  }
 
   return (
     <div
@@ -305,13 +389,26 @@ export function FloorPlan({
         const px = e.clientX - rect.left;
         const py = e.clientY - rect.top;
         const { x, y } = view.toFloor(px, py);
-        setHover(x >= 0 && y >= 0 && x <= floor.width_m && y <= floor.depth_m ? { x, y, px, py } : null);
+        const inside = x >= 0 && y >= 0 && x <= floor.width_m && y <= floor.depth_m;
+        setHover(inside ? { x, y, px, py } : null);
+        onHover?.(inside ? { x, y } : null);
       }}
-      onMouseLeave={() => setHover(null)}
-      onClick={() => {
-        if (!hover) return;
-        if (hoverZone && onZoneClick) onZoneClick(hoverZone);
-        else onFloorClick?.({ x: hover.x, y: hover.y });
+      onMouseLeave={() => {
+        setHover(null);
+        onHover?.(null);
+      }}
+      onClick={(e) => {
+        const p = pointFromEvent(e);
+        if (!p) return;
+        const zone = onZoneClick
+          ? zones.find((z) => z.polygon.length >= 3 && pointInPolygon(p.x, p.y, z.polygon))
+          : undefined;
+        if (zone && onZoneClick) onZoneClick(zone);
+        else onFloorClick?.(p);
+      }}
+      onDoubleClick={(e) => {
+        const p = pointFromEvent(e);
+        if (p) onFloorDoubleClick?.(p);
       }}
     >
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" aria-label={`Floor plan of ${floor.name}`} role="img" />

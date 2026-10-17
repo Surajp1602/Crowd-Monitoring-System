@@ -22,7 +22,7 @@ from app.pipeline.perception import GroundTruthPerception, ModelPerception, Perc
 from app.pipeline.persistence import mark_tracks_lost, persist_detection_frame, upsert_tracks
 from app.pipeline.preview import annotate, encode_preview
 from app.utils.backend_client import backend_client
-from app.utils.redis_publisher import publish_camera_health, publish_detection_frame, publish_track_update
+from app.utils.redis_publisher import publish_camera_health, publish_detection_frame, publish_track_updates
 
 logger = logging.getLogger("ccd.ai.worker")
 
@@ -51,6 +51,13 @@ class CameraWorker:
     @property
     def is_simulated(self) -> bool:
         return self.camera.stream_type == StreamType.SIMULATED
+
+    def update_zones(self, context: CameraContext) -> None:
+        """Applies zone edits in place. Only the stream and geometry need a restart;
+        zone membership is evaluated per frame, so a real camera keeps its connection."""
+        self.context = context
+        self.version = context.version
+        self._analyzer.context = context
 
     def start(self) -> None:
         self._task = asyncio.create_task(self._run(), name=f"camera-worker-{self.camera_id}")
@@ -133,6 +140,10 @@ class CameraWorker:
         frame_skip = 1 if self.is_simulated else self._frame_skip()
         frames_read = 0
         assert self._perception is not None
+        # Measure frame rate from the moment frames flow, not from worker construction,
+        # or the first report after a slow start (model load, reconnect) reads near zero.
+        self._fps_window_start = time.time()
+        self._fps_window_frames = 0
 
         await self._report_health(CameraStatus.ONLINE)
 
@@ -186,8 +197,8 @@ class CameraWorker:
 
     async def _publish(self, analysis: FrameAnalysis, image) -> None:
         settings = get_settings()
-        for obs in analysis.observations:
-            await publish_track_update(
+        await publish_track_updates(
+            [
                 TrackUpdateMessage(
                     camera_id=self.camera_id,
                     track_id=obs.person.track_id,
@@ -200,7 +211,9 @@ class CameraWorker:
                     dwell_time_s=obs.kinematics.dwell_time_s,
                     status="active",
                 )
-            )
+                for obs in analysis.observations
+            ]
+        )
 
         jpeg_b64 = None
         if time.time() - self._last_preview_at >= 1.0 / max(settings.PREVIEW_FPS, 0.1):

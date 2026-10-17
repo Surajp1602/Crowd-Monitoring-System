@@ -47,9 +47,10 @@ class BaseRepository(Generic[ModelT]):
         return obj
 
     async def update(self, obj: ModelT, **kwargs: Any) -> ModelT:
+        """Sets every given field, including explicit None (which clears it). Callers
+        pass `model_dump(exclude_unset=True)`, so omitted fields are never touched."""
         for key, value in kwargs.items():
-            if value is not None:
-                setattr(obj, key, value)
+            setattr(obj, key, value)
         await self.db.flush()
         await self.db.refresh(obj)
         return obj

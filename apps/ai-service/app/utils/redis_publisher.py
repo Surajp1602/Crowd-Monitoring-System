@@ -31,6 +31,17 @@ async def publish_track_update(message: TrackUpdateMessage) -> None:
     await r.publish(tracks_channel(message.camera_id), message.model_dump_json())
 
 
+async def publish_track_updates(messages: list[TrackUpdateMessage]) -> None:
+    """One round trip per frame instead of one per person: a busy camera can track
+    a hundred people at 8 fps, and per-message publishes saturate the event loop."""
+    if not messages:
+        return
+    pipe = get_redis().pipeline(transaction=False)
+    for message in messages:
+        pipe.publish(tracks_channel(message.camera_id), message.model_dump_json())
+    await pipe.execute()
+
+
 async def publish_camera_health(message: CameraHealthMessage) -> None:
     r = get_redis()
     payload = message.model_dump_json()

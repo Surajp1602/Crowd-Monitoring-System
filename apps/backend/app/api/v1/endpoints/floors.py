@@ -3,7 +3,9 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from common.rbac import Perm
+from common.redis_channels import CAMERA_COMMANDS_CHANNEL
 
+from app.core.redis import publish_event
 from app.deps import DbSession, require_permission
 from app.repositories.entities import FloorRepository
 from app.schemas.common import Page
@@ -30,6 +32,7 @@ async def create_floor(payload: FloorCreate, db: DbSession):
     floor = await repo.create(**payload.model_dump())
     await db.commit()
     await db.refresh(floor)
+    await publish_event(CAMERA_COMMANDS_CHANNEL, {"action": "map_changed", "floor_id": str(floor.id)})
     return FloorRead.model_validate(floor)
 
 
@@ -50,6 +53,7 @@ async def update_floor(floor_id: uuid.UUID, payload: FloorUpdate, db: DbSession)
     floor = await repo.update(floor, **payload.model_dump(exclude_unset=True))
     await db.commit()
     await db.refresh(floor)
+    await publish_event(CAMERA_COMMANDS_CHANNEL, {"action": "map_changed", "floor_id": str(floor.id)})
     return FloorRead.model_validate(floor)
 
 
@@ -61,3 +65,4 @@ async def delete_floor(floor_id: uuid.UUID, db: DbSession):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Floor not found")
     await repo.delete(floor)
     await db.commit()
+    await publish_event(CAMERA_COMMANDS_CHANNEL, {"action": "map_changed", "floor_id": str(floor_id)})

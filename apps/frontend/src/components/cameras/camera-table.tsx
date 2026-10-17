@@ -1,38 +1,38 @@
 "use client";
 
-import { Trash2, Video } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { CameraFormDialog } from "@/components/cameras/camera-form-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCameras, useDeleteCamera } from "@/hooks/use-cameras";
+import { useCamerasLive } from "@/hooks/use-live";
+import { useAllFloors } from "@/hooks/use-map";
 import { cameraStatusBadge, relativeTime } from "@/lib/format";
 import { Perm } from "@/lib/permissions";
+import type { Camera } from "@/lib/types";
 import { useAuthStore } from "@/stores/auth-store";
 
 export function CameraTable() {
   const { data, isLoading } = useCameras();
+  const live = useCamerasLive();
+  const { floors } = useAllFloors();
   const deleteCamera = useDeleteCamera();
   const canManage = useAuthStore((s) => s.hasPermission(Perm.CAMERA_MANAGE));
+  const [editing, setEditing] = useState<Camera | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
-  async function handleDelete(id: string, name: string) {
-    if (!window.confirm(`Remove camera "${name}"? This cannot be undone.`)) return;
-    setPendingDeleteId(id);
+  async function handleDelete(camera: Camera) {
+    if (!window.confirm(`Remove camera "${camera.name}"? Its history stays; live monitoring stops.`)) return;
+    setPendingDeleteId(camera.id);
     try {
-      await deleteCamera.mutateAsync(id);
-      toast.success(`Camera "${name}" removed`);
+      await deleteCamera.mutateAsync(camera.id);
+      toast.success(`Removed ${camera.name}`);
     } catch {
-      toast.error("Failed to remove camera");
+      toast.error("Could not remove the camera");
     } finally {
       setPendingDeleteId(null);
     }
@@ -41,7 +41,7 @@ export function CameraTable() {
   if (isLoading) {
     return (
       <div className="space-y-2">
-        {Array.from({ length: 4 }).map((_, i) => (
+        {Array.from({ length: 5 }).map((_, i) => (
           <Skeleton key={i} className="h-12 w-full" />
         ))}
       </div>
@@ -50,71 +50,80 @@ export function CameraTable() {
 
   if (!data || data.items.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border py-16 text-center">
-        <Video className="size-8 text-muted-foreground" />
-        <div>
-          <p className="font-medium">No cameras yet</p>
-          <p className="text-sm text-muted-foreground">
-            Add your first camera to start monitoring a zone.
-          </p>
-        </div>
+      <div className="py-16 text-center">
+        <p className="text-paper">No cameras yet</p>
+        <p className="mt-1 text-sm text-paper-dim">Add a stream, or a simulated feed to try the platform.</p>
       </div>
     );
   }
 
+  const floorName = (id: string | null) => floors.find((f) => f.id === id)?.name ?? "—";
+
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Camera</TableHead>
-          <TableHead>Type</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>FPS</TableHead>
-          <TableHead>Latency</TableHead>
-          <TableHead>Last Seen</TableHead>
-          {canManage && <TableHead className="text-right">Actions</TableHead>}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {data.items.map((camera) => {
-          const statusBadge = cameraStatusBadge[camera.status];
-          return (
-            <TableRow key={camera.id}>
-              <TableCell>
-                <div>
-                  <p className="font-medium">{camera.name}</p>
-                  <p className="text-xs text-muted-foreground">{camera.code}</p>
-                </div>
-              </TableCell>
-              <TableCell className="uppercase text-xs text-muted-foreground">
-                {camera.stream_type}
-              </TableCell>
-              <TableCell>
-                <Badge variant={statusBadge.variant} dot>
-                  {statusBadge.label}
-                </Badge>
-              </TableCell>
-              <TableCell>{camera.fps > 0 ? camera.fps.toFixed(1) : "—"}</TableCell>
-              <TableCell>{camera.latency_ms > 0 ? `${camera.latency_ms.toFixed(0)}ms` : "—"}</TableCell>
-              <TableCell className="text-muted-foreground">
-                {relativeTime(camera.last_seen_at)}
-              </TableCell>
-              {canManage && (
-                <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={pendingDeleteId === camera.id}
-                    onClick={() => handleDelete(camera.id, camera.name)}
-                  >
-                    <Trash2 className="size-4 text-destructive" />
-                  </Button>
+    <>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Camera</TableHead>
+            <TableHead>Source</TableHead>
+            <TableHead>Floor</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">People</TableHead>
+            <TableHead className="text-right">FPS</TableHead>
+            <TableHead className="text-right">Latency</TableHead>
+            <TableHead>Last seen</TableHead>
+            {canManage && <TableHead className="text-right">Actions</TableHead>}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.items.map((camera) => {
+            const health = live[camera.id]?.health;
+            const summary = live[camera.id]?.summary;
+            const status = camera.is_active ? (health?.status ?? camera.status) : "disabled";
+            const badge = cameraStatusBadge[status];
+            const fps = health?.fps ?? camera.fps;
+            const latency = health?.latency_ms ?? camera.latency_ms;
+            return (
+              <TableRow key={camera.id}>
+                <TableCell>
+                  <p className="text-paper">{camera.name}</p>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.06em] text-paper-faint">{camera.code}</p>
                 </TableCell>
-              )}
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+                <TableCell className="font-mono text-[11px] uppercase text-paper-dim">{camera.stream_type}</TableCell>
+                <TableCell className="text-paper-dim">{floorName(camera.floor_id)}</TableCell>
+                <TableCell>
+                  <Badge variant={badge.variant} dot title={health?.error ?? camera.last_error ?? undefined}>
+                    {badge.label}
+                  </Badge>
+                </TableCell>
+                <TableCell className="num text-right">{summary ? summary.person_count : "—"}</TableCell>
+                <TableCell className="num text-right">{fps > 0 ? fps.toFixed(1) : "—"}</TableCell>
+                <TableCell className="num text-right">{latency > 0 ? `${latency.toFixed(0)} ms` : "—"}</TableCell>
+                <TableCell className="text-paper-dim">{relativeTime(health?.ts ?? camera.last_seen_at)}</TableCell>
+                {canManage && (
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" aria-label={`Edit ${camera.name}`} onClick={() => setEditing(camera)}>
+                      <Pencil />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Remove ${camera.name}`}
+                      disabled={pendingDeleteId === camera.id}
+                      onClick={() => handleDelete(camera)}
+                    >
+                      <Trash2 className="text-severity-critical" />
+                    </Button>
+                  </TableCell>
+                )}
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+      {canManage && (
+        <CameraFormDialog open={Boolean(editing)} onOpenChange={(o) => !o && setEditing(null)} camera={editing} />
+      )}
+    </>
   );
 }

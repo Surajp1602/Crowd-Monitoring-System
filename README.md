@@ -16,7 +16,7 @@ phase and exercise what's landed so far.
 - [x] **Phase 2** — Next.js dashboard shell: auth (guest/authority), camera management, alerts, live summary
 - [x] **Phase 3** — AI pipeline: YOLO + DeepSORT, floor projection, kinematics, crowd simulator for hardware-free demos
 - [x] **Phase 4** — Real-time WebSocket gateway, floor heatmap engine with isolines, live dashboard, demo facility
-- [ ] Phase 5 — 3D facility map (Three.js / React Three Fiber)
+- [x] **Phase 5** — 3D facility map (density terrain, live people, cameras) and a 2D layout editor
 - [ ] Phase 6 — Anomaly detection + alert generation
 - [ ] Phase 7 — Notifications (push/SMS/WhatsApp/email, pluggable)
 - [ ] Phase 8 — Analytics dashboards + system health

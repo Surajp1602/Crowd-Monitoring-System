@@ -31,8 +31,9 @@ from app.density.geometry import CameraGeometry, floor_to_image
 from app.detection.types import Detection
 from app.tracking.types import TrackedPerson
 
-FRAME_WIDTH = 960
-FRAME_HEIGHT = 540
+FRAME_WIDTH = 640
+"""Matches the preview width, so simulated frames never need a resize before encoding."""
+FRAME_HEIGHT = 360
 
 WALK_SPEED = (0.9, 1.5)
 RUN_SPEED = (3.2, 4.5)
@@ -117,6 +118,7 @@ class CrowdSimulator:
         self._started_at: float | None = None
         self._last_step_at: float | None = None
         self._next_incident_at = 0.0
+        self._background: np.ndarray | None = None
         self.last_incident: str | None = None
 
     # ---- geometry helpers -------------------------------------------------------
@@ -344,6 +346,31 @@ class CrowdSimulator:
         return people, objects
 
     def render(self, people: list[TrackedPerson], objects: list[Detection]) -> np.ndarray:
+        if self._background is None:
+            self._background = self._render_background()
+        image = self._background.copy()
+
+        for bag in objects:
+            cv2.rectangle(image, (int(bag.x1), int(bag.y1)), (int(bag.x2), int(bag.y2)), (40, 90, 160), -1)
+
+        # Painter's order: far (higher on screen) first.
+        for person in sorted(people, key=lambda p: p.y2):
+            color = _person_color(person.track_id)
+            w = person.x2 - person.x1
+            h = person.y2 - person.y1
+            cx = int((person.x1 + person.x2) / 2)
+            body_top = int(person.y1 + h * 0.2)
+            cv2.ellipse(
+                image,
+                (cx, int((body_top + person.y2) / 2)),
+                (max(2, int(w / 2)), max(3, int((person.y2 - body_top) / 2))),
+                0, 0, 360, color, -1, cv2.LINE_AA,
+            )
+            cv2.circle(image, (cx, int(person.y1 + h * 0.1)), max(2, int(w * 0.28)), color, -1, cv2.LINE_AA)
+        return image
+
+    def _render_background(self) -> np.ndarray:
+        """The empty scene: static for a camera's lifetime, so it is drawn once."""
         image = np.zeros((FRAME_HEIGHT, FRAME_WIDTH, 3), dtype=np.uint8)
         # Vertical gradient: a dim concourse ceiling fading into a lit floor.
         ramp = np.linspace(18, 46, FRAME_HEIGHT, dtype=np.float32)[:, None]
@@ -361,26 +388,22 @@ class CrowdSimulator:
                     pts.append((int(px[0]), int(px[1])))
             for p, q in zip(pts, pts[1:]):
                 cv2.line(image, p, q, (70, 62, 55), 1, cv2.LINE_AA)
-
-        for bag in objects:
-            cv2.rectangle(image, (int(bag.x1), int(bag.y1)), (int(bag.x2), int(bag.y2)), (40, 90, 160), -1)
-
-        # Painter's order: far (higher on screen) first.
-        for person in sorted(people, key=lambda p: p.y2):
-            hue = (person.track_id * 47) % 180
-            color = cv2.cvtColor(np.uint8([[[hue, 120, 200]]]), cv2.COLOR_HSV2BGR)[0][0].tolist()
-            w = person.x2 - person.x1
-            h = person.y2 - person.y1
-            cx = int((person.x1 + person.x2) / 2)
-            body_top = int(person.y1 + h * 0.2)
-            cv2.ellipse(
-                image,
-                (cx, int((body_top + person.y2) / 2)),
-                (max(2, int(w / 2)), max(3, int((person.y2 - body_top) / 2))),
-                0, 0, 360, color, -1, cv2.LINE_AA,
-            )
-            cv2.circle(image, (cx, int(person.y1 + h * 0.1)), max(2, int(w * 0.28)), color, -1, cv2.LINE_AA)
         return image
+
+
+_COLOR_CACHE: dict[int, list[int]] = {}
+
+
+def _person_color(track_id: int) -> list[int]:
+    """A stable clothing colour per person (an HSV→BGR conversion is costly per frame)."""
+    color = _COLOR_CACHE.get(track_id)
+    if color is None:
+        hue = (track_id * 47) % 180
+        color = cv2.cvtColor(np.uint8([[[hue, 120, 200]]]), cv2.COLOR_HSV2BGR)[0][0].tolist()
+        if len(_COLOR_CACHE) > 5000:
+            _COLOR_CACHE.clear()
+        _COLOR_CACHE[track_id] = color
+    return color
 
 
 class SimulatedSource:

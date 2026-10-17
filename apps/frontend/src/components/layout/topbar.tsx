@@ -28,15 +28,22 @@ const LIVE_LABEL: Record<LiveStatus, { text: string; tone: string }> = {
   offline: { text: "Offline", tone: "bg-severity-critical" },
 };
 
+let clockText = "--:--:--";
+
 function subscribeToSeconds(callback: () => void) {
-  const id = setInterval(callback, 1000);
+  const tick = () => {
+    clockText = new Date().toLocaleTimeString([], { hour12: false });
+    callback();
+  };
+  tick();
+  const id = setInterval(tick, 1000);
   return () => clearInterval(id);
 }
 
 function Clock() {
   const time = useSyncExternalStore(
     subscribeToSeconds,
-    () => new Date().toLocaleTimeString([], { hour12: false }),
+    () => clockText,
     () => "--:--:--"
   );
   return <span className="num hidden text-xs text-paper-dim md:inline">{time}</span>;

@@ -161,7 +161,14 @@ class PipelineManager:
             await self._workers.pop(camera_id).stop()
 
         for camera_id in current_ids & target_ids:
-            if self._workers[camera_id].version != contexts[camera_id].version:
+            worker, ctx = self._workers[camera_id], contexts[camera_id]
+            if worker.version == ctx.version:
+                continue
+            # version = (camera fields, floor, zones): zone-only edits are applied live.
+            if worker.version[:2] == ctx.version[:2] and not worker.is_simulated:
+                logger.info("camera %s: zones changed, updating in place", camera_id)
+                worker.update_zones(ctx)
+            else:
                 logger.info("camera %s: configuration changed, restarting worker", camera_id)
                 await self._workers.pop(camera_id).stop()
 

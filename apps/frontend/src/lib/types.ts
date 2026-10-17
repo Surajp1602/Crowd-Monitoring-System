@@ -79,6 +79,8 @@ export interface CameraCreateInput {
   tilt_deg?: number;
   fov_deg?: number;
   range_m?: number;
+  config?: Record<string, unknown>;
+  is_active?: boolean;
 }
 
 export interface Building {
