@@ -58,3 +58,37 @@ async def test_simulated_worker_publishes_frames_tracks_and_health(monkeypatch):
     assert published["persisted"] > 0
     statuses = [h.status for h in published["health"]]
     assert statuses[0] == "online" and statuses[-1] == "offline"
+
+
+def test_worker_version_ignores_health_heartbeats():
+    import datetime
+
+    camera = SimpleNamespace(
+        id=uuid.uuid4(), stream_type=StreamType.SIMULATED, stream_url="simulated://demo",
+        stream_username=None, stream_password_encrypted=None, floor_id=None,
+        map_x=0.0, map_y=0.0, orientation_deg=90.0, fov_deg=90.0, range_m=18.0,
+        config={}, status="online", fps=8.0, updated_at=datetime.datetime(2026, 1, 1),
+    )
+    before = CameraContext(camera=camera).version
+    camera.status, camera.fps, camera.updated_at = "offline", 0.0, datetime.datetime(2026, 1, 2)
+    assert CameraContext(camera=camera).version == before
+    camera.orientation_deg = 45.0
+    assert CameraContext(camera=camera).version != before
+
+
+async def test_stop_does_not_hang_on_a_blocked_worker():
+    import time
+
+    camera = SimpleNamespace(id=uuid.uuid4(), stream_type=StreamType.RTSP, config={},
+                             map_x=0.0, map_y=0.0, orientation_deg=0.0, fov_deg=90.0, range_m=10.0)
+    worker = CameraWorker(CameraContext(camera=camera))
+
+    async def stuck():
+        await asyncio.sleep(60)
+
+    worker._task = asyncio.create_task(stuck())
+    started = time.monotonic()
+    await worker.stop(timeout=0.2)
+    assert time.monotonic() - started < 1.0
+    await asyncio.sleep(0)
+    assert worker._task.cancelled()

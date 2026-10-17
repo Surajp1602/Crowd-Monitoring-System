@@ -10,19 +10,21 @@ it react immediately instead of on the next poll.
 
 import asyncio
 import logging
+import time
 
 import orjson
 from sqlalchemy import select
 
 from common.models import Camera, Floor, Zone
-from common.redis_channels import CAMERA_COMMANDS_CHANNEL
+from common.redis_channels import AI_SERVICE_HEARTBEAT_KEY, CAMERA_COMMANDS_CHANNEL
 
 from app.core.config import get_settings
 from app.core.runtime_settings import runtime_settings
 from app.db.session import session_scope
+from app.heatmap.engine import heatmap_registry
 from app.pipeline.camera_worker import CameraWorker
 from app.pipeline.context import CameraContext, FloorInfo, ZoneInfo
-from app.utils.redis_publisher import get_redis
+from app.utils.redis_publisher import get_redis, publish_heatmap
 
 logger = logging.getLogger("ccd.ai.manager")
 
@@ -67,6 +69,7 @@ class PipelineManager:
         settings = get_settings()
         await runtime_settings.refresh()
         listener = asyncio.create_task(self._listen_for_commands(), name="camera-command-listener")
+        publisher = asyncio.create_task(self._publish_heatmaps(), name="heatmap-publisher")
         try:
             while not self._stop_event.is_set():
                 try:
@@ -82,6 +85,7 @@ class PipelineManager:
                 await runtime_settings.refresh()
         finally:
             listener.cancel()
+            publisher.cancel()
 
     async def _listen_for_commands(self) -> None:
         """Any camera command just triggers an immediate reconcile: the DB stays the
@@ -104,6 +108,43 @@ class PipelineManager:
                 logger.warning("Camera command listener lost its Redis connection; retrying", exc_info=True)
                 await asyncio.sleep(5)
 
+    async def _publish_heatmaps(self) -> None:
+        """One snapshot per floor per interval, plus a liveness heartbeat for the
+        backend's system-health page."""
+        settings = get_settings()
+        while not self._stop_event.is_set():
+            started = time.time()
+            for heatmap in heatmap_registry.floors():
+                try:
+                    await publish_heatmap(heatmap.snapshot(started))
+                except Exception:
+                    logger.warning("Heatmap publish failed for floor %s", heatmap.floor.id, exc_info=True)
+            try:
+                await get_redis().set(
+                    AI_SERVICE_HEARTBEAT_KEY,
+                    orjson.dumps({"ts": started, "cameras": self.camera_ids}).decode(),
+                    ex=30,
+                )
+            except Exception:
+                logger.debug("Heartbeat write failed", exc_info=True)
+            elapsed = time.time() - started
+            await asyncio.sleep(max(0.05, settings.HEATMAP_PUBLISH_INTERVAL_S - elapsed))
+
+    def _configure_heatmaps(self, contexts: dict[str, CameraContext]) -> None:
+        heatmap_settings = runtime_settings.heatmap
+        floors = {}
+        for ctx in contexts.values():
+            if ctx.floor is not None:
+                floors[str(ctx.floor.id)] = ctx
+        for ctx in floors.values():
+            heatmap_registry.configure(
+                ctx.floor,
+                ctx.zones,
+                resolution_m=float(heatmap_settings.get("grid_resolution_m", 0.5)),
+                decay_seconds=float(heatmap_settings.get("decay_seconds", 8)),
+            )
+        heatmap_registry.retain(set(floors))
+
     async def stop(self) -> None:
         self._stop_event.set()
         await asyncio.gather(*(w.stop() for w in self._workers.values()), return_exceptions=True)
@@ -111,6 +152,7 @@ class PipelineManager:
 
     async def _reconcile(self) -> None:
         contexts = await load_camera_contexts()
+        self._configure_heatmaps(contexts)
         current_ids = set(self._workers)
         target_ids = set(contexts)
 

@@ -48,5 +48,9 @@ class RuntimeSettings:
     def anomaly(self) -> dict:
         return self._values["anomaly"]
 
+    @property
+    def heatmap(self) -> dict:
+        return self._values["heatmap"]
+
 
 runtime_settings = RuntimeSettings()

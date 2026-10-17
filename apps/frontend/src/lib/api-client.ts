@@ -15,7 +15,7 @@ export class ApiError extends Error {
 
 let refreshPromise: Promise<string | null> | null = null;
 
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = useAuthStore.getState().refreshToken;
   if (!refreshToken) return null;
 

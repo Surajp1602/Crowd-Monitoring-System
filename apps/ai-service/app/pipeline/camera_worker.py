@@ -15,6 +15,7 @@ from app.capture.simulated import CrowdSimulator, SimulatedSource, SimulationCon
 from app.capture.source import CameraOpenError, FrameSource
 from app.core.config import get_settings
 from app.core.runtime_settings import runtime_settings
+from app.heatmap.engine import heatmap_registry
 from app.pipeline.analysis import FrameAnalysis, FrameAnalyzer
 from app.pipeline.context import CameraContext
 from app.pipeline.perception import GroundTruthPerception, ModelPerception, Perception
@@ -54,10 +55,20 @@ class CameraWorker:
     def start(self) -> None:
         self._task = asyncio.create_task(self._run(), name=f"camera-worker-{self.camera_id}")
 
-    async def stop(self) -> None:
+    async def stop(self, timeout: float = 5.0) -> None:
+        """Signals the loop and waits briefly. A worker stuck in a blocking OpenCV call
+        (an unreachable RTSP host can hold `open()` for its full timeout) is cancelled
+        rather than allowed to stall the manager's reconcile pass."""
         self._stop_event.set()
-        if self._task:
-            await self._task
+        if not self._task:
+            return
+        try:
+            await asyncio.wait_for(asyncio.shield(self._task), timeout=timeout)
+        except asyncio.TimeoutError:
+            logger.warning("camera %s: worker did not stop within %.0fs, cancelling", self.camera_id, timeout)
+            self._task.cancel()
+        except Exception:
+            logger.exception("camera %s: worker failed while stopping", self.camera_id)
 
     def _build_source(self) -> FrameSource | SimulatedSource:
         if self.is_simulated:
@@ -107,6 +118,8 @@ class CameraWorker:
                 pass
             backoff = min(backoff * 2, settings.MAX_RECONNECT_BACKOFF_S)
 
+        if self.context.floor is not None and (hm := heatmap_registry.get(str(self.context.floor.id))):
+            hm.drop_camera(self.camera_id)
         await self._report_health(CameraStatus.OFFLINE)
 
     def _frame_skip(self) -> int:
@@ -149,6 +162,7 @@ class CameraWorker:
                 inference_ms=result.inference_ms,
             )
 
+            self._report_heatmap(analysis)
             await self._publish(analysis, frame.image)
             self._record_timing(frame.captured_at)
 
@@ -157,6 +171,18 @@ class CameraWorker:
                 await self._persist(analysis)
 
             await self._maybe_report_health()
+
+    def _report_heatmap(self, analysis: FrameAnalysis) -> None:
+        if self.context.floor is None:
+            return
+        heatmap = heatmap_registry.get(str(self.context.floor.id))
+        if heatmap is not None:
+            heatmap.report(
+                self.camera_id,
+                [(o.map_x, o.map_y) for o in analysis.observations],
+                analysis.zone_counts,
+                analysis.ts,
+            )
 
     async def _publish(self, analysis: FrameAnalysis, image) -> None:
         settings = get_settings()

@@ -15,7 +15,7 @@ phase and exercise what's landed so far.
 - [x] **Phase 1** — Backend foundation: FastAPI, Postgres, JWT auth + RBAC, camera/map/alert/analytics CRUD
 - [x] **Phase 2** — Next.js dashboard shell: auth (guest/authority), camera management, alerts, live summary
 - [x] **Phase 3** — AI pipeline: YOLO + DeepSORT, floor projection, kinematics, crowd simulator for hardware-free demos
-- [ ] Phase 4 — Real-time WebSocket layer + heatmap engine
+- [x] **Phase 4** — Real-time WebSocket gateway, floor heatmap engine with isolines, live dashboard, demo facility
 - [ ] Phase 5 — 3D facility map (Three.js / React Three Fiber)
 - [ ] Phase 6 — Anomaly detection + alert generation
 - [ ] Phase 7 — Notifications (push/SMS/WhatsApp/email, pluggable)

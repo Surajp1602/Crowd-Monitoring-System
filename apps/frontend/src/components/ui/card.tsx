@@ -2,36 +2,39 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 function Card({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      className={cn("glass-panel rounded-xl shadow-lg shadow-black/20", className)}
-      {...props}
-    />
-  );
+  return <div className={cn("panel", className)} {...props} />;
 }
 
 function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("flex flex-col gap-1 p-5", className)} {...props} />;
+  return <div className={cn("flex items-start justify-between gap-3 px-5 pb-3 pt-4", className)} {...props} />;
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"h3">) {
-  return <h3 className={cn("text-sm font-medium text-muted-foreground", className)} {...props} />;
-}
-
-function CardValue({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("text-2xl font-semibold tracking-tight", className)} {...props} />;
+/** Numbered mono label, e.g. index="02" → "02 — RECENT ALERTS". */
+function CardTitle({
+  className,
+  index,
+  children,
+  ...props
+}: React.ComponentProps<"h3"> & { index?: string }) {
+  return (
+    <h3 className={cn("eyebrow", className)} {...props}>
+      {index && <span className="text-amber">{index}</span>}
+      {index && <span className="mx-1.5 text-paper-faint/60">—</span>}
+      {children}
+    </h3>
+  );
 }
 
 function CardDescription({ className, ...props }: React.ComponentProps<"p">) {
-  return <p className={cn("text-xs text-muted-foreground", className)} {...props} />;
+  return <p className={cn("text-xs text-paper-dim", className)} {...props} />;
 }
 
 function CardContent({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("p-5 pt-0", className)} {...props} />;
+  return <div className={cn("px-5 pb-5", className)} {...props} />;
 }
 
 function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("flex items-center p-5 pt-0", className)} {...props} />;
+  return <div className={cn("flex items-center border-t border-rule px-5 py-3", className)} {...props} />;
 }
 
-export { Card, CardHeader, CardTitle, CardValue, CardDescription, CardContent, CardFooter };
+export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter };

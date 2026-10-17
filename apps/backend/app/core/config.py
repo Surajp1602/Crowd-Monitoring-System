@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     INTERNAL_SERVICE_API_KEY: str = "dev-internal-service-key-change-me"
     """Shared secret ai-service/worker use to call backend-internal ingest endpoints."""
 
+    SEED_DEMO_DATA: bool = False
+    """Seed a demo facility with simulated cameras on first boot (empty database only)."""
+
+    ENABLE_WS_BRIDGE: bool = True
+    """Run the Redis -> WebSocket bridge in this process. Disabled by the test suite."""
+
     STORAGE_DIR: str = "/data/media"
     """Local mount for alert snapshots/clips; swap for S3/Blob in production via storage backend."""
 

@@ -1,24 +1,22 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
 import { QueryProvider } from "@/providers/query-provider";
 import "./globals.css";
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
 export const metadata: Metadata = {
-  title: "Crowd Density Platform",
-  description: "Enterprise crowd density mapping and anomaly detection control center",
+  title: { default: "CCD — Crowd Density Control", template: "%s · CCD" },
+  description: "Real-time crowd density mapping, anomaly detection and alerting for venues and transit.",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0c0e0d",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.variable} font-sans`}>
+      <body>
         <QueryProvider>
           {children}
           <Toaster
@@ -26,9 +24,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             position="top-right"
             toastOptions={{
               style: {
-                background: "var(--popover)",
-                color: "var(--popover-foreground)",
-                border: "1px solid var(--border)",
+                background: "var(--ink-3)",
+                color: "var(--paper)",
+                border: "1px solid var(--rule-strong)",
+                borderRadius: "6px",
+                fontFamily: "var(--font-sans)",
               },
             }}
           />

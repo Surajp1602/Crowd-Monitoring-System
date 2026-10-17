@@ -6,8 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.api import api_router
 from app.core.config import get_settings
+from app.db.demo_seed import seed_demo_facility
 from app.db.seed import run_seed
 from app.db.session import AsyncSessionLocal
+from app.ws.bridge import bridge
 from app.ws.router import router as ws_router
 
 settings = get_settings()
@@ -22,9 +24,15 @@ async def lifespan(app: FastAPI):
         try:
             await run_seed(db)
             logger.info("Startup seed complete (roles, permissions, first admin, default settings).")
+            if settings.SEED_DEMO_DATA and await seed_demo_facility(db):
+                await db.commit()
         except Exception:
             logger.exception("Startup seed failed - database may not be migrated yet.")
+    if settings.ENABLE_WS_BRIDGE:
+        bridge.start()
     yield
+    if settings.ENABLE_WS_BRIDGE:
+        await bridge.stop()
 
 
 app = FastAPI(

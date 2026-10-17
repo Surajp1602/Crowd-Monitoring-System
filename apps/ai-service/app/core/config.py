@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     HEALTH_REPORT_INTERVAL_S: float = 5.0
     DB_PERSIST_INTERVAL_S: float = 2.0
     """Aggregate DetectionFrame/Track rows are flushed to Postgres at most this often per camera."""
+    HEATMAP_PUBLISH_INTERVAL_S: float = 1.0
     PREVIEW_FPS: float = 2.0
     """Annotated JPEG previews per second per camera sent to the live camera wall."""
     RECONNECT_BACKOFF_S: float = 5.0

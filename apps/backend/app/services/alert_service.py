@@ -1,7 +1,6 @@
 import uuid
 from datetime import datetime, timezone
 
-import orjson
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,9 +8,28 @@ from common.enums import AlertStatus
 from common.models import Alert
 from common.redis_channels import ALERTS_CHANNEL
 
-from app.core.redis import get_redis
+from app.core.redis import publish_event
 from app.repositories.entities import AlertRepository
 from app.schemas.alert import AlertCreate
+
+
+def alert_event_payload(alert: Alert, event: str) -> dict:
+    return {
+        "event": event,
+        "id": str(alert.id),
+        "camera_id": str(alert.camera_id) if alert.camera_id else None,
+        "zone_id": str(alert.zone_id) if alert.zone_id else None,
+        "alert_type": alert.alert_type.value,
+        "severity": alert.severity.value,
+        "status": alert.status.value,
+        "title": alert.title,
+        "description": alert.description,
+        "confidence": alert.confidence,
+        "map_x": alert.map_x,
+        "map_y": alert.map_y,
+        "snapshot_url": alert.snapshot_url,
+        "created_at": alert.created_at.isoformat(),
+    }
 
 
 async def create_alert(db: AsyncSession, payload: AlertCreate) -> Alert:
@@ -20,25 +38,7 @@ async def create_alert(db: AsyncSession, payload: AlertCreate) -> Alert:
     alert = await repo.create(**data, metadata_json=payload.metadata)
     await db.commit()
     await db.refresh(alert)
-
-    redis = get_redis()
-    await redis.publish(
-        ALERTS_CHANNEL,
-        orjson.dumps(
-            {
-                "id": str(alert.id),
-                "camera_id": str(alert.camera_id) if alert.camera_id else None,
-                "zone_id": str(alert.zone_id) if alert.zone_id else None,
-                "alert_type": alert.alert_type.value,
-                "severity": alert.severity.value,
-                "status": alert.status.value,
-                "title": alert.title,
-                "map_x": alert.map_x,
-                "map_y": alert.map_y,
-                "created_at": alert.created_at.isoformat(),
-            }
-        ).decode(),
-    )
+    await publish_event(ALERTS_CHANNEL, alert_event_payload(alert, "alert.created"))
     return alert
 
 
@@ -61,4 +61,5 @@ async def set_alert_status(db: AsyncSession, alert: Alert, new_status: AlertStat
     alert = await repo.update(alert, **fields)
     await db.commit()
     await db.refresh(alert)
+    await publish_event(ALERTS_CHANNEL, alert_event_payload(alert, "alert.updated"))
     return alert

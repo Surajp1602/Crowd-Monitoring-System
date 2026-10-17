@@ -6,6 +6,32 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "apps/frontend"],
       "port": 3000
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "D:/crowd-density/apps/backend/.venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--app-dir", "apps/backend", "--port", "8000"],
+      "cwd": "apps/backend",
+      "env": {
+        "DATABASE_URL": "postgresql+asyncpg://ccd:ccd@localhost:5433/ccd",
+        "REDIS_URL": "redis://localhost:6379/0",
+        "SEED_DEMO_DATA": "true",
+        "CORS_ORIGINS": "[\"http://localhost:3000\",\"http://localhost:5173\",\"http://localhost:4173\"]"
+      },
+      "port": 8000
+    },
+    {
+      "name": "ai-service",
+      "runtimeExecutable": "D:/crowd-density/apps/ai-service/.venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "app.main"],
+      "cwd": "apps/ai-service",
+      "env": {
+        "DATABASE_URL": "postgresql+asyncpg://ccd:ccd@localhost:5433/ccd",
+        "REDIS_URL": "redis://localhost:6379/0",
+        "BACKEND_URL": "http://localhost:8000",
+        "HEALTH_PORT": "8080"
+      },
+      "port": 8080
     }
   ]
 }

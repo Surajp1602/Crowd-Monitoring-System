@@ -23,6 +23,8 @@ from app.tracking.types import TrackedPerson
 
 logger = logging.getLogger("ccd.ai.capture")
 
+NETWORK_TIMEOUT_MS = 5000
+
 
 @dataclass
 class Frame:
@@ -85,9 +87,17 @@ class FrameSource:
         self.is_finite_source = camera.stream_type == StreamType.FILE
 
     def open(self) -> None:
-        cap = cv2.VideoCapture(self._target)
-        if self.stream_type in (StreamType.RTSP, StreamType.ONVIF):
+        if self.stream_type in (StreamType.RTSP, StreamType.HTTP, StreamType.ONVIF):
+            # Bounded open/read timeouts: without them FFmpeg can block for ~30s on an
+            # unreachable host, which delays reconnects and worker shutdown.
+            cap = cv2.VideoCapture(
+                self._target,
+                cv2.CAP_FFMPEG,
+                [cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, NETWORK_TIMEOUT_MS, cv2.CAP_PROP_READ_TIMEOUT_MSEC, NETWORK_TIMEOUT_MS],
+            )
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        else:
+            cap = cv2.VideoCapture(self._target)
         if not cap.isOpened():
             cap.release()
             raise CameraOpenError(f"Could not open stream for camera {self.camera_id}")

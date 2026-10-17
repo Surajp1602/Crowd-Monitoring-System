@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     events,
     floors,
     health,
+    live,
     notifications,
     settings,
     users,
@@ -28,3 +29,4 @@ api_router.include_router(events.router)
 api_router.include_router(analytics.router)
 api_router.include_router(notifications.router)
 api_router.include_router(settings.router)
+api_router.include_router(live.router)

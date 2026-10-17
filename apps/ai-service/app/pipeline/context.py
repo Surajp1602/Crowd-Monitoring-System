@@ -5,11 +5,25 @@ manager on each reconcile pass so workers never query the map tables per frame.
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
 
 from common.models import Camera
 
 from app.density.geometry import CameraGeometry, point_in_polygon, polygon_area
+
+
+CONFIG_FIELDS = (
+    "stream_type",
+    "stream_url",
+    "stream_username",
+    "stream_password_encrypted",
+    "floor_id",
+    "map_x",
+    "map_y",
+    "orientation_deg",
+    "fov_deg",
+    "range_m",
+    "config",
+)
 
 
 @dataclass(frozen=True)
@@ -56,11 +70,19 @@ class CameraContext:
 
     @property
     def version(self) -> tuple:
-        """Changes whenever the camera row or its floor's zones are edited; the manager
-        restarts the worker when it does, so geometry and zone edits apply live."""
-        zone_key = tuple(sorted((str(z.id), str(z.polygon), z.is_restricted) for z in self.zones))
-        updated_at: datetime | None = self.camera.updated_at
-        return (updated_at, zone_key)
+        """Changes when anything the worker depends on is edited (stream, geometry,
+        per-camera config, floor, zones), so the manager restarts it and edits apply live.
+
+        Deliberately excludes `updated_at`: the backend rewrites the camera row on every
+        health heartbeat (status, fps, latency), which must not restart the worker.
+        """
+        c = self.camera
+        camera_key = tuple(str(getattr(c, f, None)) for f in CONFIG_FIELDS)
+        zone_key = tuple(
+            sorted((str(z.id), str(z.polygon), z.is_restricted, z.capacity_threshold) for z in self.zones)
+        )
+        floor_key = (str(self.floor.id), self.floor.width_m, self.floor.depth_m) if self.floor else None
+        return camera_key, floor_key, zone_key
 
     @property
     def geometry(self) -> CameraGeometry:

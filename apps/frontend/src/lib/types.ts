@@ -90,6 +90,19 @@ export interface Building {
   longitude: number | null;
 }
 
+export interface Wall {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+export interface FloorLayout {
+  wall_height_m?: number;
+  walls?: Wall[];
+  labels?: Array<{ text: string; x: number; y: number }>;
+}
+
 export interface Floor {
   id: string;
   building_id: string;
@@ -97,7 +110,7 @@ export interface Floor {
   level_index: number;
   width_m: number;
   depth_m: number;
-  layout: Record<string, unknown> | null;
+  layout: FloorLayout | null;
 }
 
 export type ZoneType =
