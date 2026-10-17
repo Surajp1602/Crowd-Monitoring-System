@@ -1,0 +1,42 @@
+{
+  "calibrated": true,
+  "caught": 5,
+  "total": 5,
+  "results": [
+    {
+      "mutant": "no-signature",
+      "attacks": "creativity",
+      "overallGap": 0.9,
+      "dimGap": 2.3,
+      "caught": true
+    },
+    {
+      "mutant": "cramped-broken",
+      "attacks": "usability",
+      "overallGap": 1.4,
+      "dimGap": 2.2,
+      "caught": true
+    },
+    {
+      "mutant": "generic-type",
+      "attacks": "design",
+      "overallGap": 0.8,
+      "dimGap": 1.3,
+      "caught": true
+    },
+    {
+      "mutant": "template-palette",
+      "attacks": "design",
+      "overallGap": 3,
+      "dimGap": 2.9,
+      "caught": true
+    },
+    {
+      "mutant": "lorem-content",
+      "attacks": "content",
+      "overallGap": 2,
+      "dimGap": 6.5,
+      "caught": true
+    }
+  ]
+}

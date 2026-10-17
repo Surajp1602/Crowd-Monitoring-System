@@ -1,0 +1,5 @@
+# Jury captures are large and regenerated on every run; keep the log and calibration scores.
+juried/jury/20*/
+juried/jury/calibration/sheets/
+juried/jury/calibration/key.json
+juried/*.log

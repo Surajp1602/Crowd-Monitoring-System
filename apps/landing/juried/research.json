@@ -1,0 +1,64 @@
+{
+  "subject": {
+    "name": "CCD — Crowd Density Platform",
+    "url": "local repository (crowd-density)",
+    "kind": "product",
+    "relationship": "owner"
+  },
+  "positioning": {
+    "oneLiner": "Real-time crowd density mapping, anomaly detection and alerting for venues and transit.",
+    "problem": "Crowds become dangerous gradually and then suddenly; control rooms watching camera walls see the build-up too late and cannot tell where density is rising.",
+    "audience": ["Venue security leads", "Transit station operators", "Event and stadium safety officers", "Mall and campus facilities teams"],
+    "differentiators": [
+      "Density as a live floor-level field (people per square metre), not a count per camera",
+      "Anomalies on trajectories: panic, stampede risk, counter-flow, intrusion, abandoned bags",
+      "Runs on the operator's own hardware; works without a GPU in simulation for evaluation",
+      "Notifications to staff by role and to the public by distance from the incident"
+    ]
+  },
+  "offer": [
+    { "name": "Detection pipeline", "summary": "YOLO person detection and DeepSORT tracking per camera; floor projection, speed, heading and dwell per person.", "url": "apps/ai-service" },
+    { "name": "Live density and 3D map", "summary": "Per-floor heatmaps with isolines, zone occupancy against capacity, a 3D facility map with density as terrain.", "url": "apps/frontend" },
+    { "name": "Anomaly detection", "summary": "Twelve rule-based detectors with sustain timers and cooldowns; evidence snapshots per alert.", "url": "apps/ai-service/app/anomaly/engine.py" },
+    { "name": "Notifications", "summary": "Staff and geofenced public notices over email, SMS, WhatsApp, push and public-address webhooks.", "url": "apps/worker" },
+    { "name": "Analytics and health", "summary": "Minute rollups, typical-week occupancy, zone capacity history, alerts per day, system health.", "url": "apps/backend/app/services/insights_service.py" }
+  ],
+  "proof": [
+    { "claim": "12 anomaly detectors", "source": "apps/ai-service/app/anomaly/engine.py (running, panic, stampede, congestion, rapid density rise, counter-flow, abnormal stopping, loitering, gathering, restricted-zone intrusion, altercation, abandoned bag)" },
+    { "claim": "Heatmap per floor refreshed every second", "source": "apps/ai-service/app/core/config.py HEATMAP_PUBLISH_INTERVAL_S = 1.0" },
+    { "claim": "Isolines at 0.5, 1, 2, 3.5 and 5 people per square metre", "source": "apps/frontend/src/lib/isolines.ts ISOLINE_LEVELS" },
+    { "claim": "Default congestion threshold 4 people/m², stampede 6 people/m²", "source": "packages/common/common/default_settings.py" },
+    { "claim": "Running counts from 2.5 m/s sustained for 1 s", "source": "default_settings.py running_speed_mps; engine.py RUN_SUSTAIN_S" },
+    { "claim": "5 notification channels", "source": "packages/common/common/enums.py NotificationChannel (push, sms, whatsapp, email, public_announcement)" },
+    { "claim": "6 camera source types plus a simulator", "source": "enums.py StreamType (rtsp, http, onvif, usb, file, webcam, simulated)" },
+    { "claim": "8 simulated cameras at about 8 fps each with 26–47 ms latency on one development machine", "source": "measured in this session (2026-10-17), /cameras live table" },
+    { "claim": "Public notices name only the place and what to avoid; contacts are masked in logs", "source": "apps/worker/app/dispatch/routing.py" }
+  ],
+  "clients": [],
+  "voice": {
+    "phrases": ["Read the crowd before it moves", "people per square metre", "zone load against capacity", "evidence snapshot", "safety notice"],
+    "tone": "Operational, plain and specific; short declaratives; numbers only where the product produces them.",
+    "avoid": ["unlock", "seamless", "empower", "revolutionise", "AI-powered", "surveillance"]
+  },
+  "brand": {
+    "colors": { "ink": "#0c0e0d", "ink2": "#131614", "paper": "#ece8de", "paperDim": "#a4a69c", "accent": "#f2a93b", "accentDeep": "#b8741a" },
+    "fonts": { "display": "Archivo Variable (wdth 86–92)", "text": "Archivo Variable", "data": "JetBrains Mono Variable", "source": "self-hosted (@fontsource-variable)" },
+    "logo": { "file": "apps/frontend/src/components/brand/mark.tsx (three offset isolines, amber peak)", "symbolCrop": null }
+  },
+  "sections": [
+    { "id": "hero", "heading": "Read the crowd before it moves.", "body": "Live density on every floor and anomalies flagged the moment cameras see them.", "ctas": [{ "label": "Open the control center", "href": "http://localhost:3000/login" }, { "label": "How it works", "href": "#how" }] }
+  ],
+  "embeds": [],
+  "faq": [
+    { "q": "Does it identify people?", "a": "No. It detects and tracks bodies to estimate positions and motion. There is no face recognition, and public notices never include images or individual details." },
+    { "q": "Do we need GPUs?", "a": "For live cameras, an NVIDIA GPU is recommended for YOLO inference; one mid-range GPU serves several streams. The simulator runs the whole platform without a GPU or cameras." },
+    { "q": "Where does the data live?", "a": "On your infrastructure: Postgres, Redis and a shared media volume, deployed with Docker Compose or Kubernetes. Raw frames are not stored; snapshots are kept only for alerts." },
+    { "q": "Which cameras work?", "a": "RTSP, ONVIF, HTTP/MJPEG, USB, webcams and video files. Each camera is placed on the floor plan with its heading, field of view and range." }
+  ],
+  "references": [
+    { "url": "https://www.windy.com", "source": "studio", "borrow": "A data field rendered as the interface itself; motion that reads as weather, not decoration." },
+    { "url": "https://www.palantir.com/platforms/gotham/", "source": "studio", "borrow": "Restraint: dark operational surfaces, small mono labels, nothing playful." },
+    { "url": "https://linear.app", "source": "studio", "borrow": "Section rhythm and tight, light display type with generous spacing." }
+  ],
+  "mustKeepLinks": []
+}
