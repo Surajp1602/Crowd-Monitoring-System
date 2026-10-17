@@ -19,6 +19,8 @@ from common.models import (
     Zone,
 )
 
+from sqlalchemy import func, select
+
 from app.repositories.base import BaseRepository
 
 
@@ -52,6 +54,36 @@ class ZoneRepository(BaseRepository[Zone]):
 
 class AlertRepository(BaseRepository[Alert]):
     model = Alert
+
+    async def search(
+        self,
+        *,
+        offset: int,
+        limit: int,
+        statuses=None,
+        severities=None,
+        types=None,
+        camera_id=None,
+        zone_id=None,
+        since=None,
+    ) -> tuple[list[Alert], int]:
+        conditions = []
+        if statuses:
+            conditions.append(Alert.status.in_(statuses))
+        if severities:
+            conditions.append(Alert.severity.in_(severities))
+        if types:
+            conditions.append(Alert.alert_type.in_(types))
+        if camera_id:
+            conditions.append(Alert.camera_id == camera_id)
+        if zone_id:
+            conditions.append(Alert.zone_id == zone_id)
+        if since:
+            conditions.append(Alert.created_at >= since)
+        stmt = select(Alert).where(*conditions).order_by(Alert.created_at.desc()).offset(offset).limit(limit)
+        count = select(func.count()).select_from(Alert).where(*conditions)
+        items = (await self.db.execute(stmt)).scalars().all()
+        return list(items), (await self.db.execute(count)).scalar_one()
 
 
 class EventRepository(BaseRepository[Event]):

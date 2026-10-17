@@ -38,6 +38,14 @@ async def test_simulated_worker_publishes_frames_tracks_and_health(monkeypatch):
         return None
 
     monkeypatch.setattr(worker_module.backend_client, "report_camera_health", fake_report)
+
+    async def fake_publish_anomaly(message):
+        published.setdefault("anomalies", []).append(message)
+
+    from app.anomaly import reporter as reporter_module
+
+    monkeypatch.setattr(reporter_module, "publish_anomaly", fake_publish_anomaly)
+    monkeypatch.setattr(reporter_module.backend_client, "create_alert", fake_report)
     monkeypatch.setattr(worker_module.get_settings(), "DB_PERSIST_INTERVAL_S", 0.2)
 
     camera = SimpleNamespace(

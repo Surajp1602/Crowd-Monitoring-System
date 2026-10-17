@@ -34,6 +34,24 @@ def annotate(image: np.ndarray, analysis: FrameAnalysis) -> np.ndarray:
     return out
 
 
+def annotate_evidence(image: np.ndarray, analysis: FrameAnalysis, track_ids: set[int], title: str) -> np.ndarray:
+    """Alert snapshot: everyone dimmed, the people involved boxed in red, and a caption."""
+    out = (image * 0.75).astype(np.uint8)
+    for obs in analysis.observations:
+        p = obs.person
+        involved = p.track_id in track_ids
+        color = (77, 72, 229) if involved else (110, 110, 110)
+        cv2.rectangle(out, (int(p.x1), int(p.y1)), (int(p.x2), int(p.y2)), color, 2 if involved else 1, cv2.LINE_AA)
+    cv2.rectangle(out, (0, 0), (out.shape[1], 26), (13, 14, 12), -1)
+    cv2.putText(out, title[:80], (8, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (222, 232, 236), 1, cv2.LINE_AA)
+    return out
+
+
+def encode_jpeg(image: np.ndarray, quality: int = 85) -> bytes:
+    ok, buf = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, quality])
+    return buf.tobytes() if ok else b""
+
+
 def encode_preview(image: np.ndarray) -> str:
     h, w = image.shape[:2]
     if w > PREVIEW_MAX_WIDTH:

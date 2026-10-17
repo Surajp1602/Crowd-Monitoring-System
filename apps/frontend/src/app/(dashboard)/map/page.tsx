@@ -10,6 +10,7 @@ import { MapEditor } from "@/components/map/editor/map-editor";
 import type { SceneLayers, ViewPreset } from "@/components/map/scene/facility-scene";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useActiveAlerts } from "@/hooks/use-alerts";
 import { useFloorLive } from "@/hooks/use-live";
 import { useAllFloors, useFloorCameras, useZones } from "@/hooks/use-map";
 import { densityLevel } from "@/lib/isolines";
@@ -71,6 +72,12 @@ export default function MapPage() {
   const zones = useZones(floorId);
   const cameras = useFloorCameras(floorId);
   const { heatmap, tracks } = useFloorLive(mode === "view" ? floorId : null);
+  const canSeeAlerts = useAuthStore((s) => s.permissions.includes(Perm.ALERT_VIEW));
+  const activeAlerts = useActiveAlerts(canSeeAlerts);
+  const cameraFloor = new Map((cameras.data?.items ?? []).map((c) => [c.id, c.floor_id]));
+  const floorAlerts = (activeAlerts.data?.items ?? []).filter(
+    (a) => (a.metadata?.floor_id ?? (a.camera_id ? cameraFloor.get(a.camera_id) : null)) === floorId
+  );
 
   const [preset, setPreset] = useState<ViewPreset>("terrain");
   const [layers, setLayers] = useState<SceneLayers>({ terrain: true, people: true, cameras: true, labels: true });
@@ -132,6 +139,7 @@ export default function MapPage() {
                 cameras={cameras.data?.items ?? []}
                 heatmap={heatmap}
                 people={tracks?.people ?? []}
+                alerts={floorAlerts}
                 preset={preset}
                 layers={layers}
                 selectedZoneId={selectedZone?.id}

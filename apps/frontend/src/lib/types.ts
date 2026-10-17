@@ -172,7 +172,21 @@ export interface Alert {
   acknowledged_by: string | null;
   acknowledged_at: string | null;
   resolved_at: string | null;
+  metadata: {
+    track_ids?: number[];
+    floor_id?: string | null;
+    people_in_view?: number;
+    [key: string]: unknown;
+  };
   created_at: string;
+}
+
+export interface AlertStats {
+  window_hours: number;
+  total: number;
+  by_status: Partial<Record<AlertStatus, number>>;
+  by_severity: Partial<Record<AlertSeverity, number>>;
+  by_type: Partial<Record<AlertType, number>>;
 }
 
 export interface DashboardSummary {

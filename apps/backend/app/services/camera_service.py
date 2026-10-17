@@ -57,6 +57,9 @@ async def delete_camera(db: AsyncSession, camera: Camera) -> None:
 
 
 async def apply_health_update(db: AsyncSession, camera: Camera, payload: CameraHealthUpdate) -> Camera:
+    from app.services.alert_service import on_camera_status_change
+
+    previous = camera.status.value
     repo = CameraRepository(db)
     camera = await repo.update(
         camera,
@@ -68,4 +71,7 @@ async def apply_health_update(db: AsyncSession, camera: Camera, payload: CameraH
     )
     await db.commit()
     await db.refresh(camera)
+    if previous != payload.status.value:
+        await on_camera_status_change(db, camera, previous, payload.status.value, payload.error)
+        await db.refresh(camera)
     return camera

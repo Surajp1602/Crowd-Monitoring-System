@@ -12,6 +12,21 @@ import {
 import type { HeatmapFrame, LivePerson } from "@/lib/live-types";
 import type { Camera, Floor, FloorLayout, Wall, Zone } from "@/lib/types";
 
+export interface PlanMarker {
+  id: string;
+  x: number;
+  y: number;
+  severity: "low" | "medium" | "high" | "critical";
+  selected?: boolean;
+}
+
+const MARKER_COLOR: Record<PlanMarker["severity"], string> = {
+  low: "#a4a69c",
+  medium: "#e8c547",
+  high: "#f08a3c",
+  critical: "#e5484d",
+};
+
 export interface PlanPoint {
   x: number;
   y: number;
@@ -40,6 +55,8 @@ interface FloorPlanProps {
   onFloorDoubleClick?: (point: PlanPoint) => void;
   onHover?: (point: PlanPoint | null) => void;
   draft?: PlanDraft;
+  /** Alert locations, drawn as severity-coloured rings. */
+  markers?: PlanMarker[];
   className?: string;
   /** Hide labels and cameras for small thumbnails. */
   compact?: boolean;
@@ -73,6 +90,7 @@ export function FloorPlan({
   onFloorDoubleClick,
   onHover,
   draft,
+  markers,
   className,
   compact,
 }: FloorPlanProps) {
@@ -306,6 +324,24 @@ export function FloorPlan({
       }
     }
 
+    for (const m of markers ?? []) {
+      const [mx, my] = toPx(m.x, m.y);
+      const color = MARKER_COLOR[m.severity];
+      ctx.strokeStyle = color;
+      ctx.lineWidth = m.selected ? 2 : 1.25;
+      for (const r of m.selected ? [7, 13, 19] : [7, 12]) {
+        ctx.globalAlpha = r === 7 ? 1 : r === 12 || r === 13 ? 0.55 : 0.3;
+        ctx.beginPath();
+        ctx.arc(mx, my, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(mx, my, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     if (draft) {
       ctx.strokeStyle = "#f2a93b";
       ctx.fillStyle = "rgb(242 169 59 / 0.12)";
@@ -353,7 +389,7 @@ export function FloorPlan({
         ctx.stroke();
       }
     }
-  }, [size, view, floor, zones, cameras, field, people, highlightZoneId, compact, occupancy, draft]);
+  }, [size, view, floor, zones, cameras, field, people, highlightZoneId, compact, occupancy, draft, markers]);
 
   const hoverZone = useMemo(() => {
     if (!hover) return null;

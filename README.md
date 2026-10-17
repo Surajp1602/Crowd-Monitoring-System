@@ -17,7 +17,7 @@ phase and exercise what's landed so far.
 - [x] **Phase 3** — AI pipeline: YOLO + DeepSORT, floor projection, kinematics, crowd simulator for hardware-free demos
 - [x] **Phase 4** — Real-time WebSocket gateway, floor heatmap engine with isolines, live dashboard, demo facility
 - [x] **Phase 5** — 3D facility map (density terrain, live people, cameras) and a 2D layout editor
-- [ ] Phase 6 — Anomaly detection + alert generation
+- [x] **Phase 6** — Anomaly detection (12 detectors) with evidence snapshots, alert lifecycle UI, map markers
 - [ ] Phase 7 — Notifications (push/SMS/WhatsApp/email, pluggable)
 - [ ] Phase 8 — Analytics dashboards + system health
 - [ ] Phase 9 — Production hardening (NGINX, HTTPS, CI/CD, monitoring)

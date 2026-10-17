@@ -6,11 +6,14 @@ import { DensityLegend } from "@/components/map/density-legend";
 import { FloorPlan } from "@/components/map/floor-plan";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useActiveAlerts } from "@/hooks/use-alerts";
 import { useFloorLive } from "@/hooks/use-live";
 import { useAllFloors, useFloorCameras, useZones } from "@/hooks/use-map";
 import { densityLevel } from "@/lib/isolines";
 import type { HeatmapFrame } from "@/lib/live-types";
+import { Perm } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth-store";
 
 export function FloorPanel({ onHeatmap }: { onHeatmap?: (floorId: string, frame: HeatmapFrame) => void }) {
   const { floors, isLoading } = useAllFloors();
@@ -22,6 +25,11 @@ export function FloorPanel({ onHeatmap }: { onHeatmap?: (floorId: string, frame:
   const zones = useZones(floorId);
   const cameras = useFloorCameras(floorId);
   const { heatmap, tracks } = useFloorLive(floorId);
+  const canSeeAlerts = useAuthStore((s) => s.permissions.includes(Perm.ALERT_VIEW));
+  const active = useActiveAlerts(canSeeAlerts);
+  const markers = (active.data?.items ?? [])
+    .filter((a) => a.metadata?.floor_id === floorId && a.map_x != null && a.map_y != null)
+    .map((a) => ({ id: a.id, x: a.map_x!, y: a.map_y!, severity: a.severity }));
 
   useEffect(() => {
     if (heatmap && floorId) onHeatmap?.(floorId, heatmap);
@@ -83,6 +91,7 @@ export function FloorPanel({ onHeatmap }: { onHeatmap?: (floorId: string, frame:
               cameras={cameras.data?.items}
               heatmap={heatmap}
               people={tracks?.people}
+              markers={markers}
               highlightZoneId={hoverZone}
             />
           )}

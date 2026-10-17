@@ -5,12 +5,19 @@ import redis.asyncio as redis
 from common.redis_channels import (
     CAMERA_HEALTH_KEY_PREFIX,
     HEATMAP_KEY_PREFIX,
+    anomalies_channel,
     detections_channel,
     health_channel,
     heatmap_channel,
     tracks_channel,
 )
-from common.schemas import CameraHealthMessage, DetectionFrameMessage, HeatmapFrameMessage, TrackUpdateMessage
+from common.schemas import (
+    AnomalySignalMessage,
+    CameraHealthMessage,
+    DetectionFrameMessage,
+    HeatmapFrameMessage,
+    TrackUpdateMessage,
+)
 
 from app.core.config import get_settings
 
@@ -54,3 +61,7 @@ async def publish_heatmap(message: HeatmapFrameMessage) -> None:
     payload = message.model_dump_json()
     await r.publish(heatmap_channel(message.floor_id), payload)
     await r.set(f"{HEATMAP_KEY_PREFIX}{message.floor_id}", payload, ex=30)
+
+
+async def publish_anomaly(message: AnomalySignalMessage) -> None:
+    await get_redis().publish(anomalies_channel(message.camera_id), message.model_dump_json())

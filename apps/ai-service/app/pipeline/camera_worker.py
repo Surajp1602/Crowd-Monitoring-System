@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from common.enums import CameraStatus, StreamType
 from common.schemas import CameraHealthMessage, DetectionFrameMessage, TrackUpdateMessage
 
+from app.anomaly.engine import AnomalyEngine
+from app.anomaly.reporter import AnomalyReporter
 from app.capture.simulated import CrowdSimulator, SimulatedSource, SimulationConfig
 from app.capture.source import CameraOpenError, FrameSource
 from app.core.config import get_settings
@@ -37,6 +39,9 @@ class CameraWorker:
         self._task: asyncio.Task | None = None
 
         self._analyzer = FrameAnalyzer(context)
+        # The settings dict is refreshed in place, so threshold edits apply without a restart.
+        self._anomaly = AnomalyEngine(context, runtime_settings.anomaly)
+        self._reporter = AnomalyReporter(context)
         self._perception: Perception | None = None
 
         self._fps_window_start = time.time()
@@ -58,6 +63,8 @@ class CameraWorker:
         self.context = context
         self.version = context.version
         self._analyzer.context = context
+        self._anomaly.context = context
+        self._reporter.context = context
 
     def start(self) -> None:
         self._task = asyncio.create_task(self._run(), name=f"camera-worker-{self.camera_id}")
@@ -127,6 +134,7 @@ class CameraWorker:
 
         if self.context.floor is not None and (hm := heatmap_registry.get(str(self.context.floor.id))):
             hm.drop_camera(self.camera_id)
+        await self._reporter.drain()
         await self._report_health(CameraStatus.OFFLINE)
 
     def _frame_skip(self) -> int:
@@ -175,6 +183,9 @@ class CameraWorker:
 
             self._report_heatmap(analysis)
             await self._publish(analysis, frame.image)
+            for event in self._anomaly.evaluate(analysis, result.objects):
+                logger.info("camera %s: %s (%.2f)", self.camera_id, event.title, event.confidence)
+                await self._reporter.report(event, frame.image, analysis)
             self._record_timing(frame.captured_at)
 
             if time.time() - self._last_persist_at >= settings.DB_PERSIST_INTERVAL_S:

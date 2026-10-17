@@ -25,6 +25,7 @@ class AlertRead(ORMModel):
     acknowledged_by: Optional[uuid.UUID] = None
     acknowledged_at: Optional[datetime] = None
     resolved_at: Optional[datetime] = None
+    metadata_json: dict = Field(default_factory=dict, serialization_alias="metadata")
     created_at: datetime
 
 
@@ -47,6 +48,11 @@ class AlertCreate(BaseModel):
 
 
 class AlertUpdateStatus(BaseModel):
+    status: AlertStatus
+
+
+class AlertBulkStatus(BaseModel):
+    ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
     status: AlertStatus
 
 

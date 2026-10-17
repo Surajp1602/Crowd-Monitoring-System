@@ -4,12 +4,13 @@ import { OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { AlertMarkers } from "@/components/map/scene/alert-markers";
 import { CameraLayer } from "@/components/map/scene/cameras";
 import { PeopleLayer } from "@/components/map/scene/people";
 import { FloorStructure } from "@/components/map/scene/structure";
 import { DensityTerrain } from "@/components/map/scene/terrain";
 import type { HeatmapFrame, LivePerson } from "@/lib/live-types";
-import type { Camera, Floor, Zone } from "@/lib/types";
+import type { Alert, Camera, Floor, Zone } from "@/lib/types";
 
 /** The slice of drei's OrbitControls the camera rig drives. */
 interface OrbitControlsImpl {
@@ -33,6 +34,7 @@ interface FacilitySceneProps {
   cameras: Camera[];
   heatmap: HeatmapFrame | null;
   people: LivePerson[];
+  alerts?: Alert[];
   preset: ViewPreset;
   layers: SceneLayers;
   selectedZoneId?: string | null;
@@ -88,6 +90,7 @@ export function FacilityScene({
   cameras,
   heatmap,
   people,
+  alerts = [],
   preset,
   layers,
   selectedZoneId,
@@ -134,6 +137,7 @@ export function FacilityScene({
         <DensityTerrain floor={floor} heatmap={heatmap} flat={preset === "plan"} />
       )}
       {layers.people && <PeopleLayer floor={floor} people={people} />}
+      <AlertMarkers floor={floor} alerts={alerts} />
       {layers.cameras && (
         <CameraLayer floor={floor} cameras={cameras} selectedId={selectedCameraId} onSelect={(c) => onSelectCamera?.(c)} />
       )}

@@ -26,6 +26,15 @@ class BackendClient:
         except httpx.HTTPError:
             logger.warning("Failed to report health for camera %s", camera_id, exc_info=True)
 
+    async def create_alert(self, payload: dict) -> dict | None:
+        try:
+            resp = await self._client.post("/api/v1/alerts", json=payload)
+            resp.raise_for_status()
+            return resp.json()
+        except httpx.HTTPError:
+            logger.warning("Failed to persist %s alert", payload.get("alert_type"), exc_info=True)
+            return None
+
     async def aclose(self) -> None:
         await self._client.aclose()
 

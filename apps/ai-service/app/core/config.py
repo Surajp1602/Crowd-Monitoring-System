@@ -17,6 +17,10 @@ class Settings(BaseSettings):
 
     HEALTH_PORT: int = 8080
 
+    MEDIA_DIR: str = "/data/media"
+    """Shared with the backend (STORAGE_DIR): alert snapshots are written here and served,
+    behind signed URLs, by the backend."""
+
     # --- Model / device ---
     YOLO_MODEL: str = "yolo11n.pt"
     DEVICE: str = "auto"

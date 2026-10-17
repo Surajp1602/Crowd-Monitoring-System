@@ -204,13 +204,12 @@ class CrowdSimulator:
             for agent in self._pick(self.rng.randint(7, 10)):
                 agent.mode, agent.mode_until, agent.anchor = "hold", now + 90, point
         elif kind == "loiter":
-            agent = self._pick(1) or [self._spawn(now)]
-            agent[0].mode, agent[0].mode_until = "wander", now + 170
-            agent[0].anchor = (agent[0].x, agent[0].y)
+            # Anchored well inside the view so the loiterer is never jostled out of frame.
+            agent = (self._pick(1) or [self._spawn(now)])[0]
+            agent.mode, agent.mode_until, agent.anchor = "wander", now + 170, self._random_inside(0.2)
         elif kind == "stop":
-            agent = self._pick(1) or [self._spawn(now)]
-            agent[0].mode, agent[0].mode_until = "hold", now + 80
-            agent[0].anchor = (agent[0].x, agent[0].y)
+            agent = (self._pick(1) or [self._spawn(now)])[0]
+            agent.mode, agent.mode_until, agent.anchor = "hold", now + 80, self._random_inside(0.2)
         elif kind == "counter_flow":
             for _ in range(2):
                 agent = self._spawn(now, reverse=True)
