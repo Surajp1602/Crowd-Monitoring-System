@@ -45,7 +45,7 @@ export const NAV: NavGroup[] = [
       { label: "Cameras", href: "/cameras", icon: Video, permission: Perm.CAMERA_VIEW },
       { label: "Notifications", href: "/notifications", icon: BellRing, permission: Perm.NOTIFICATION_MANAGE },
       { label: "System health", href: "/system", icon: Activity, permission: Perm.ANALYTICS_VIEW, staffOnly: true },
-      { label: "AI settings", href: "/settings", icon: SlidersHorizontal, permission: Perm.SETTINGS_MANAGE },
+      { label: "AI settings", href: "/settings", icon: SlidersHorizontal, permission: Perm.AI_CONFIG_MANAGE },
       { label: "Users", href: "/users", icon: Users, permission: Perm.USER_MANAGE },
     ],
   },
@@ -66,4 +66,4 @@ export function visibleNav(permissions: string[], isGuest: boolean, implemented:
 }
 
 /** Routes that exist so far; the nav never links to a page that isn't built. */
-export const IMPLEMENTED_ROUTES = new Set(["/dashboard", "/live", "/map", "/alerts", "/cameras", "/notifications"]);
+export const IMPLEMENTED_ROUTES = new Set(["/dashboard", "/live", "/map", "/alerts", "/cameras", "/notifications", "/analytics", "/system", "/settings", "/users"]);

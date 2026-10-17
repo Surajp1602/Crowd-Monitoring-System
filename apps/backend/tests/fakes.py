@@ -77,6 +77,14 @@ class FakeRedis:
         self.streams[stream].append((entry_id, dict(fields)))
         return entry_id
 
+    async def xlen(self, stream: str) -> int:
+        return len(self.streams.get(stream, []))
+
+    async def xinfo_groups(self, stream: str) -> list[dict]:
+        if stream not in self.streams:
+            raise Exception("ERR no such key")
+        return [{"name": "dispatchers", "consumers": 1, "pending": 0, "lag": 0}]
+
     async def set(self, key: str, value: str, ex: int | None = None) -> bool:
         self.kv[key] = (value, time.time() + ex if ex else None)
         return True

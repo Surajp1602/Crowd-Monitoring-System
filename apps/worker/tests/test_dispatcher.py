@@ -167,3 +167,24 @@ async def test_retention_deletes_only_expired_rows(env):
     assert removed["detection_frames"] == 1
     async with env.factory() as db:
         assert len((await db.execute(select(DetectionFrame))).scalars().all()) == 1
+
+
+async def test_backfill_only_touches_the_demo_building_once(env):
+    from app.analytics.backfill import DEMO_BUILDING, backfill, transit_curve
+
+    async with env.factory() as db:
+        db.add(Building(name="Real HQ"))
+        await db.commit()
+    assert await backfill(days=1) == 0, "no demo building, nothing written"
+
+    async with env.factory() as db:
+        demo = Building(name=DEMO_BUILDING)
+        db.add(demo)
+        await db.commit()
+    written = await backfill(days=2)
+    assert written > 0
+    assert await backfill(days=2) == 0, "second run must not duplicate history"
+
+    weekday_rush = transit_curve(datetime(2026, 10, 14, 9, 0))
+    weekday_night = transit_curve(datetime(2026, 10, 14, 3, 0))
+    assert weekday_rush > 0.8 > 0.1 > weekday_night

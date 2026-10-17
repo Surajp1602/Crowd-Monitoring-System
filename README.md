@@ -19,7 +19,7 @@ phase and exercise what's landed so far.
 - [x] **Phase 5** — 3D facility map (density terrain, live people, cameras) and a 2D layout editor
 - [x] **Phase 6** — Anomaly detection (12 detectors) with evidence snapshots, alert lifecycle UI, map markers
 - [x] **Phase 7** — Notification worker: staff and geofenced public routing, SMTP / Twilio / FCM / webhook providers, public subscribe page
-- [ ] Phase 8 — Analytics dashboards + system health
+- [x] **Phase 8** — Analytics (trends, typical week, zone capacity, alerts by day), system health, AI settings, user admin
 - [ ] Phase 9 — Production hardening (NGINX, HTTPS, CI/CD, monitoring)
 - [ ] Phase 10 — Cloud deploy configs + full documentation
 

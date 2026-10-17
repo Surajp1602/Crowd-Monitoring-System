@@ -16,6 +16,7 @@ from fastapi import FastAPI
 
 from common.redis_channels import WORKER_HEARTBEAT_KEY
 
+from app.analytics.backfill import backfill
 from app.analytics.rollup import run_minute, run_retention
 from app.config import get_settings
 from app.db import get_redis
@@ -77,6 +78,11 @@ async def _run() -> None:
     stop = asyncio.Event()
     server = uvicorn.Server(uvicorn.Config(app, host="0.0.0.0", port=settings.HEALTH_PORT, log_level="warning"))
     logger.info("Providers: %s", {c: s["provider"] for c, s in provider_status.items()})
+    if settings.SEED_DEMO_HISTORY:
+        try:
+            await backfill()
+        except Exception:
+            logger.exception("Demo history backfill failed")
     tasks = [
         asyncio.create_task(dispatcher.run(stop), name="dispatcher"),
         asyncio.create_task(_every(10, _heartbeat, stop, "heartbeat"), name="heartbeat"),

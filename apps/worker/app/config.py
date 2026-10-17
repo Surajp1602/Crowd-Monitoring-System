@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     CLAIM_IDLE_MS: int = 60_000
     """Messages a dead consumer left pending longer than this are reclaimed."""
 
+    SEED_DEMO_HISTORY: bool = False
+    """Backfill 14 days of synthetic occupancy for the demo station on first start
+    (only its scopes, only when they have no history; see app/analytics/backfill.py)."""
+
     # ---- Analytics rollups and retention (Phase 8) ----
     ROLLUP_INTERVAL_S: float = 60.0
     RETENTION_DAYS_FRAMES: int = 14

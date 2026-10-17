@@ -136,3 +136,31 @@ def test_min_confidence_suppresses_weak_alerts():
 def test_quiet_crowds_stay_quiet_across_seeds(seed):
     noisy = types(run_incident(None, 45, seed=seed)) - {AlertType.LOITERING}
     assert noisy == set()
+
+
+def test_a_gathering_is_not_reported_as_people_stopping():
+    events = run_incident("gathering", 120, people=14, settings={"abnormal_stop_s": 60})
+    assert AlertType.SUSPICIOUS_GATHERING in types(events)
+    assert AlertType.ABNORMAL_STOPPING not in types(events)
+
+
+def test_population_cycle_alone_is_not_a_surge():
+    """A busy-hour build-up (8 -> 40 people over a 4-minute rise) is not a surge."""
+    ctx = _context()
+    sim = CrowdSimulator(geometry=GEOMETRY, config=SimulationConfig(
+        seed=3, base_people=8, peak_people=40, cycle_s=480, incident_every_s=1e9, incidents=()))
+    analyzer = FrameAnalyzer(ctx)
+    engine = AnomalyEngine(ctx, DEFAULT_SETTINGS["anomaly"])
+    raised = []
+    most = 0
+    t = 1000.0
+    while t < 1000.0 + 480:
+        sim.step(t)
+        people_now, objects = sim.observe()
+        analysis = analyzer.analyze(people_now, FRAME_WIDTH, FRAME_HEIGHT, ts=t,
+                                    captured_at=datetime.fromtimestamp(t, tz=timezone.utc), avg_confidence=0.9, inference_ms=0)
+        raised.extend(engine.evaluate(analysis, objects))
+        most = max(most, len(sim.agents))
+        t += DT
+    assert most > 20, "the cycle should actually fill the view"
+    assert AlertType.RAPID_DENSITY_INCREASE not in types(raised)

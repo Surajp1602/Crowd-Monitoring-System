@@ -6,11 +6,12 @@ from sqlalchemy import select
 from common.models import Role
 from common.rbac import Perm
 
+from app.core.config import get_settings
 from app.core.security import hash_password
 from app.deps import DbSession, require_permission
 from app.repositories.entities import UserRepository
 from app.schemas.common import Page
-from app.schemas.user import UserRead, UserUpdate
+from app.schemas.user import RoleRead, UserRead, UserUpdate
 
 router = APIRouter(
     prefix="/users", tags=["users"], dependencies=[Depends(require_permission(Perm.USER_MANAGE))]
@@ -24,6 +25,12 @@ async def list_users(db: DbSession, page: int = Query(1, ge=1), page_size: int =
     for u in items:
         await db.refresh(u, attribute_names=["role"])
     return Page(items=[UserRead.model_validate(u) for u in items], total=total, page=page, page_size=page_size)
+
+
+@router.get("/roles", response_model=list[RoleRead])
+async def list_roles(db: DbSession):
+    roles = (await db.execute(select(Role).order_by(Role.name))).scalars().all()
+    return [RoleRead.model_validate(r) for r in roles]
 
 
 @router.get("/{user_id}", response_model=UserRead)
@@ -42,6 +49,8 @@ async def update_user(user_id: uuid.UUID, payload: UserUpdate, db: DbSession):
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
+    if user.email == get_settings().FIRST_ADMIN_EMAIL and (payload.is_active is False or (payload.role_name and payload.role_name != "admin")):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The bootstrap administrator cannot be disabled or demoted")
     updates = payload.model_dump(exclude_unset=True, exclude={"role_name", "password"})
     if payload.password:
         updates["hashed_password"] = hash_password(payload.password)
@@ -63,5 +72,7 @@ async def delete_user(user_id: uuid.UUID, db: DbSession):
     user = await repo.get(user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if user.email == get_settings().FIRST_ADMIN_EMAIL:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The bootstrap administrator cannot be deleted")
     await repo.delete(user)
     await db.commit()

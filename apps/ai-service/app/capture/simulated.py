@@ -38,6 +38,9 @@ FRAME_HEIGHT = 360
 WALK_SPEED = (0.9, 1.5)
 RUN_SPEED = (3.2, 4.5)
 PERSONAL_SPACE_M = 0.6
+TRANSIT_S = 16.0
+"""Rough time a walker takes to cross a camera's view; sets the steady arrival rate."""
+CATCH_UP_S = 25.0
 
 INCIDENT_KINDS = (
     "rush",
@@ -271,9 +274,15 @@ class CrowdSimulator:
             jitter = self.rng.uniform(0.7, 1.3)
             self._next_incident_at = now + self.config.incident_every_s * jitter
 
+        # Arrivals are a Poisson process: at equilibrium target/TRANSIT_S people enter per
+        # second (each crosses the view in roughly TRANSIT_S), plus a gentle correction
+        # toward the target. Bursty catch-up spawning would look like a surge to detectors.
         target = self.target_population(now)
         walkers = sum(1 for a in self.agents if a.mode == "walk")
-        if walkers < target and self.rng.random() < 0.35:
+        rate = target / TRANSIT_S + max(0, target - walkers) / CATCH_UP_S
+        if walkers > 1.2 * target:
+            rate *= 0.5
+        if self.rng.random() < 1 - math.exp(-rate * dt):
             self._spawn(now)
 
         for agent in self.agents:
@@ -282,8 +291,9 @@ class CrowdSimulator:
                 agent.speed = self.rng.uniform(*WALK_SPEED)
                 _, agent.goal = self._flow_endpoints()
 
-            vx, vy = self._desired_velocity(agent, now)
+            dvx, dvy = self._desired_velocity(agent, now)
             # Separation: push away from neighbours inside personal space.
+            px = py = 0.0
             for other in self.agents:
                 if other is agent:
                     continue
@@ -291,8 +301,17 @@ class CrowdSimulator:
                 d = math.hypot(ox, oy)
                 if 0 < d < PERSONAL_SPACE_M and agent.mode != "fight":
                     push = (PERSONAL_SPACE_M - d) / PERSONAL_SPACE_M
-                    vx += ox / d * push * 0.8
-                    vy += oy / d * push * 0.8
+                    px += ox / d * push * 0.8
+                    py += oy / d * push * 0.8
+            vx, vy = dvx + px, dvy + py
+            # Walking into someone: sidestep instead of pressing against them, so a walker
+            # never pins itself against a standing group (people walk around obstacles).
+            desired = math.hypot(dvx, dvy)
+            if agent.mode in ("walk", "run") and desired > 0 and px * dvx + py * dvy < 0:
+                side = 1.0 if agent.id % 2 else -1.0
+                strength = math.hypot(px, py) * 1.5
+                vx += -dvy / desired * strength * side
+                vy += dvx / desired * strength * side
             agent.vx, agent.vy = vx, vy
             agent.x += vx * dt
             agent.y += vy * dt

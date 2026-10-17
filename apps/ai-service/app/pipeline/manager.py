@@ -25,6 +25,7 @@ from app.heatmap.engine import heatmap_registry
 from app.pipeline.camera_worker import CameraWorker
 from app.pipeline.context import CameraContext, FloorInfo, ZoneInfo
 from app.utils.redis_publisher import get_redis, publish_heatmap
+from app.utils.system_stats import host_stats
 
 logger = logging.getLogger("ccd.ai.manager")
 
@@ -64,6 +65,11 @@ class PipelineManager:
         self._workers: dict[str, CameraWorker] = {}
         self._stop_event = asyncio.Event()
         self._reconcile_now = asyncio.Event()
+        self._stats: dict = {}
+        self._last_stats_at = 0.0
+        from app.detection.yolo_detector import resolve_device
+
+        self._device = resolve_device(get_settings().DEVICE)
 
     async def run(self) -> None:
         settings = get_settings()
@@ -120,9 +126,12 @@ class PipelineManager:
                 except Exception:
                     logger.warning("Heatmap publish failed for floor %s", heatmap.floor.id, exc_info=True)
             try:
+                if started - self._last_stats_at >= 5:
+                    self._last_stats_at = started
+                    self._stats = await asyncio.to_thread(host_stats)
                 await get_redis().set(
                     AI_SERVICE_HEARTBEAT_KEY,
-                    orjson.dumps({"ts": started, "cameras": self.camera_ids}).decode(),
+                    orjson.dumps({"ts": started, "cameras": self.camera_ids, "device": self._device, **self._stats}).decode(),
                     ex=30,
                 )
             except Exception:

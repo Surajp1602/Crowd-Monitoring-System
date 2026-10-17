@@ -13,6 +13,7 @@ from app.api.v1.endpoints import (
     media,
     notifications,
     settings,
+    system,
     users,
     zones,
 )
@@ -32,3 +33,4 @@ api_router.include_router(notifications.router)
 api_router.include_router(settings.router)
 api_router.include_router(live.router)
 api_router.include_router(media.router)
+api_router.include_router(system.router)

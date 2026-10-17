@@ -33,8 +33,15 @@ PANIC_RUNNER_SHARE = 0.3
 STAMPEDE_MIN_SPEED = 1.4
 CONGESTION_SUSTAIN_S = 10.0
 RAPID_WINDOW_S = 30.0
-RAPID_MIN_RISE = 8
+RAPID_MIN_RISE = 10
+"""Absolute floor: fewer than ten extra people in a view is never a crowd-safety surge."""
 RAPID_MIN_RATIO = 1.5
+RAPID_SMOOTH_S = 2.0
+RAPID_BASELINE_S = 10.0
+RAPID_SUSTAIN_S = 5.0
+"""Noise spikes pass; a real influx stays. The rise must hold this long before it fires."""
+"""Counts are averaged over this many seconds first, so detection flicker and a few
+people crossing the frame edge never read as a surge."""
 FLOW_MIN_COHERENCE = 0.55
 """Mean resultant length of headings; below this there is no dominant flow to run against."""
 COUNTER_FLOW_SUSTAIN_S = 3.0
@@ -44,6 +51,10 @@ STOP_MAX_DRIFT_M = 1.0
 """A stopped person is judged by drift from where they stopped, not instantaneous speed:
 neighbours brushing past jostle them, which must not reset the timer."""
 STOP_FLOW_MIN_MOVERS = 3
+STOP_ISOLATION_RADIUS_M = 2.5
+STOP_MAX_STILL_NEIGHBOURS = 1
+"""Someone standing with a group is gathering, not stalled: only an isolated stopped
+person (at most one other still person nearby) counts as abnormal stopping."""
 LOITER_MAX_DISPLACEMENT_M = 6.0
 GATHER_RADIUS_M = 2.5
 GATHER_MIN_PEOPLE = 6
@@ -97,6 +108,8 @@ class _TrackState:
     running_since: float | None = None
     stopped_since: float | None = None
     stop_anchor: tuple[float, float] | None = None
+    alone_stopped_since: float | None = None
+    """Runs only while stopped *and* isolated; time spent standing in a group never counts."""
     counter_since: float | None = None
     restricted_since: float | None = None
     fight_since: float | None = None
@@ -130,6 +143,8 @@ class AnomalyEngine:
         self.settings = settings
         self._tracks: dict[int, _TrackState] = {}
         self._counts: deque[tuple[float, int]] = deque()
+        self._smoothed: deque[tuple[float, int]] = deque()
+        self._surge_since: float | None = None
         self._congested_since: float | None = None
         self._gather_since: dict[tuple[int, int], float] = {}
         self._bags: list[_Bag] = []
@@ -266,11 +281,23 @@ class AnomalyEngine:
         while self._counts and now - self._counts[0][0] > RAPID_WINDOW_S:
             self._counts.popleft()
 
-        # Rapid increase: the head count rose sharply within the window.
-        if self._counts:
-            low = min(c for _, c in self._counts)
-            rise = len(obs) - low
-            if rise >= RAPID_MIN_RISE and len(obs) >= RAPID_MIN_RATIO * max(low, 1):
+        # Rapid increase: the smoothed head count rose sharply above the window's low.
+        recent = [c for t, c in self._counts if now - t <= RAPID_SMOOTH_S]
+        current = round(sum(recent) / len(recent)) if recent else len(obs)
+        self._smoothed.append((now, current))
+        while self._smoothed and now - self._smoothed[0][0] > RAPID_WINDOW_S:
+            self._smoothed.popleft()
+        # Baseline: the mean of the window's oldest RAPID_BASELINE_S, not its minimum (the
+        # minimum of a noisy count is biased low). A rise must clear ~3 sigma of Poisson
+        # noise (3 * sqrt(baseline)) as well as the absolute and relative floors.
+        start = self._smoothed[0][0] if self._smoothed else now
+        early = [c for t, c in self._smoothed if t <= start + RAPID_BASELINE_S]
+        if early and now - start >= RAPID_BASELINE_S + RAPID_SMOOTH_S:
+            low = round(sum(early) / len(early))
+            rise = current - low
+            surging = rise >= max(RAPID_MIN_RISE, 3 * math.sqrt(max(low, 1))) and current >= RAPID_MIN_RATIO * max(low, 1)
+            self._surge_since = (self._surge_since or now) if surging else None
+            if surging and now - self._surge_since >= RAPID_SUSTAIN_S:
                 cx, cy = _centroid(obs) if obs else (None, None)
                 events.append(
                     AnomalyEvent(
@@ -278,11 +305,11 @@ class AnomalyEngine:
                         severity=AlertSeverity.HIGH if rise >= 2 * RAPID_MIN_RISE else AlertSeverity.MEDIUM,
                         confidence=min(0.97, 0.62 + 0.02 * rise),
                         title="Rapid rise in crowd density",
-                        description=f"People in view went from {low} to {len(obs)} within {int(RAPID_WINDOW_S)} s.",
+                        description=f"People in view went from {low} to {current} within {int(RAPID_WINDOW_S)} s.",
                         dedupe_key="rapid",
                         map_x=cx,
                         map_y=cy,
-                        metadata={"from": low, "to": len(obs), "window_s": RAPID_WINDOW_S},
+                        metadata={"from": low, "to": current, "window_s": RAPID_WINDOW_S},
                     )
                 )
 
@@ -404,6 +431,8 @@ class AnomalyEngine:
         stop_after = self._s("abnormal_stop_s", 60)
         loiter_after = self._s("loitering_dwell_s", 120)
         movers = sum(1 for o in obs if o.kinematics.speed_mps >= COUNTER_FLOW_MIN_SPEED)
+        iso_r2 = STOP_ISOLATION_RADIUS_M**2
+        # Update every track's stopped state first, so neighbours are judged consistently.
         for o in obs:
             st = self._tracks[o.person.track_id]
             if st.stopped_since is None:
@@ -411,24 +440,38 @@ class AnomalyEngine:
                     st.stopped_since, st.stop_anchor = now, (o.map_x, o.map_y)
             elif math.hypot(o.map_x - st.stop_anchor[0], o.map_y - st.stop_anchor[1]) > STOP_MAX_DRIFT_M:
                 st.stopped_since, st.stop_anchor = None, None
+        # Jostled group members can briefly exceed STOP_SPEED; stopped state or slow speed counts.
+        still = [
+            o for o in obs
+            if self._tracks[o.person.track_id].stopped_since is not None or o.kinematics.speed_mps < GATHER_MAX_SPEED
+        ]
+        for o in obs:
+            st = self._tracks[o.person.track_id]
 
             zone_id = self._zone_at(o.map_x, o.map_y)
+            still_neighbours = sum(
+                1 for s in still if s is not o and (s.map_x - o.map_x) ** 2 + (s.map_y - o.map_y) ** 2 <= iso_r2
+            )
+            if st.stopped_since is not None and still_neighbours <= STOP_MAX_STILL_NEIGHBOURS:
+                st.alone_stopped_since = st.alone_stopped_since or now
+            else:
+                st.alone_stopped_since = None
             if (
-                st.stopped_since is not None
-                and now - st.stopped_since >= stop_after
+                st.alone_stopped_since is not None
+                and now - st.alone_stopped_since >= stop_after
                 and movers >= STOP_FLOW_MIN_MOVERS
             ):
                 events.append(
                     AnomalyEvent(
                         alert_type=AlertType.ABNORMAL_STOPPING,
                         severity=AlertSeverity.MEDIUM,
-                        confidence=min(0.9, 0.6 + 0.002 * (now - st.stopped_since)),
+                        confidence=min(0.9, 0.6 + 0.002 * (now - st.alone_stopped_since)),
                         title=f"Person stopped in a moving crowd{self._zone_label(zone_id)}",
                         description=(
-                            f"Track #{o.person.track_id} has not moved for {int(now - st.stopped_since)} s "
+                            f"Track #{o.person.track_id} has not moved for {int(now - st.alone_stopped_since)} s "
                             f"while {movers} people move around them. They may need assistance."
                         ),
-                        dedupe_key=f"stop:{o.person.track_id}",
+                        dedupe_key=f"stop:{zone_id}",
                         map_x=o.map_x,
                         map_y=o.map_y,
                         zone_id=zone_id,
@@ -449,7 +492,7 @@ class AnomalyEngine:
                             confidence=min(0.9, 0.6 + 0.001 * (dwell - loiter_after) + 0.03 * (LOITER_MAX_DISPLACEMENT_M - spread)),
                             title=f"Loitering{self._zone_label(zone_id)}",
                             description=f"Track #{o.person.track_id} has stayed within {spread:.1f} m for {int(dwell)} s.",
-                            dedupe_key=f"loiter:{o.person.track_id}",
+                            dedupe_key=f"loiter:{zone_id}",
                             map_x=o.map_x,
                             map_y=o.map_y,
                             zone_id=zone_id,
