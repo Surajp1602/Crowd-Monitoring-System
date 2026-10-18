@@ -1,13 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ZoneLoad } from "@/components/dashboard/zone-load";
 import { PageHeader } from "@/components/layout/page-header";
 import { CameraTile } from "@/components/live/camera-tile";
 import { DensityLegend } from "@/components/map/density-legend";
 import { MapEditor } from "@/components/map/editor/map-editor";
 import type { SceneLayers, ViewPreset } from "@/components/map/scene/facility-scene";
+import type { SafeArea } from "@/components/map/scene/label-sprite";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useActiveAlerts } from "@/hooks/use-alerts";
@@ -29,6 +30,47 @@ const PRESETS: { id: ViewPreset; label: string }[] = [
   { id: "plan", label: "Plan" },
   { id: "low", label: "Low angle" },
 ];
+
+/** Portrait phones get the plan by default: a perspective view of a whole floor is unreadable at that width. */
+const PORTRAIT_PHONE = "(max-width: 599px) and (orientation: portrait)";
+
+function useMediaQuery(query: string) {
+  return useSyncExternalStore(
+    (notify) => {
+      const mq = window.matchMedia(query);
+      mq.addEventListener("change", notify);
+      return () => mq.removeEventListener("change", notify);
+    },
+    () => window.matchMedia(query).matches,
+    () => false
+  );
+}
+
+/** How far the toolbar and legend overlays reach into the canvas, so labels stay clear of them. */
+function useOverlayInsets(mounted: boolean) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const topBarRef = useRef<HTMLDivElement>(null);
+  const bottomBarRef = useRef<HTMLDivElement>(null);
+  const [insets, setInsets] = useState<SafeArea>({ top: 0, bottom: 0 });
+  useEffect(() => {
+    const el = frameRef.current;
+    if (!el) return;
+    const top = topBarRef.current;
+    const bottom = bottomBarRef.current;
+    const measure = () => {
+      const next = {
+        top: top ? top.offsetTop + top.offsetHeight + 6 : 0,
+        bottom: bottom ? el.clientHeight - bottom.offsetTop + 6 : 0,
+      };
+      setInsets((prev) => (prev.top === next.top && prev.bottom === next.bottom ? prev : next));
+    };
+    const ro = new ResizeObserver(measure);
+    for (const node of [el, top, bottom]) if (node) ro.observe(node);
+    measure();
+    return () => ro.disconnect();
+  }, [mounted]);
+  return { insets, frameRef, topBarRef, bottomBarRef };
+}
 
 function Segmented<T extends string>({
   value,
@@ -79,7 +121,10 @@ export default function MapPage() {
     (a) => (a.metadata?.floor_id ?? (a.camera_id ? cameraFloor.get(a.camera_id) : null)) === floorId
   );
 
-  const [preset, setPreset] = useState<ViewPreset>("terrain");
+  const portraitPhone = useMediaQuery(PORTRAIT_PHONE);
+  const [pickedPreset, setPreset] = useState<ViewPreset | null>(null);
+  const preset = pickedPreset ?? (portraitPhone ? "plan" : "terrain");
+  const { insets: labelInsets, frameRef, topBarRef, bottomBarRef } = useOverlayInsets(Boolean(floor) && mode === "view");
   const [layers, setLayers] = useState<SceneLayers>({ terrain: true, people: true, cameras: true, labels: true });
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
@@ -130,7 +175,7 @@ export default function MapPage() {
         <MapEditor floor={floor} floors={floors} onFloorCreated={setFloorId} />
       ) : (
         <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
-          <div className="panel relative h-[calc(100vh-15rem)] min-h-[480px] overflow-hidden">
+          <div ref={frameRef} className="panel relative h-[calc(100vh-15rem)] min-h-[480px] overflow-hidden">
             {floor ? (
               <FacilityScene
                 floor={floor}
@@ -142,6 +187,7 @@ export default function MapPage() {
                 alerts={floorAlerts}
                 preset={preset}
                 layers={layers}
+                labelSafeArea={labelInsets}
                 selectedZoneId={selectedZone?.id}
                 selectedCameraId={selectedCamera?.id}
                 onSelectZone={(z) => {
@@ -167,7 +213,7 @@ export default function MapPage() {
             {floor && (
               <>
                 {/* One toolbar that wraps: on a phone the layer toggles drop below the view switcher. */}
-                <div className="absolute inset-x-3 top-3 flex flex-wrap items-start justify-between gap-2">
+                <div ref={topBarRef} className="absolute inset-x-3 top-3 flex flex-wrap items-start justify-between gap-2">
                   <Segmented label="View" value={preset} options={PRESETS} onChange={setPreset} />
                   <div role="group" aria-label="Layers" className="flex flex-wrap justify-end gap-1">
                     {(Object.keys(layers) as (keyof SceneLayers)[]).map((key) => (
@@ -187,7 +233,7 @@ export default function MapPage() {
                     ))}
                   </div>
                 </div>
-                <div className="absolute inset-x-3 bottom-3 flex flex-wrap items-end justify-between gap-2">
+                <div ref={bottomBarRef} className="absolute inset-x-3 bottom-3 flex flex-wrap items-end justify-between gap-2">
                   <div className="rounded-[4px] border border-rule bg-ink/90 px-3 py-2">
                     <DensityLegend />
                   </div>

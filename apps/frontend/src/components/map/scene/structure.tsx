@@ -3,9 +3,9 @@
 import { useMemo } from "react";
 import * as THREE from "three";
 import { makeProjector } from "@/components/map/scene/coords";
-import { LabelSprite } from "@/components/map/scene/label-sprite";
+import { LabelLayer, type SafeArea, type SceneLabel } from "@/components/map/scene/label-sprite";
 import type { ZoneOccupancy } from "@/lib/live-types";
-import { densityColor, densityLevel } from "@/lib/isolines";
+import { densityColor } from "@/lib/isolines";
 import type { Floor, FloorLayout, Zone } from "@/lib/types";
 
 const WALL_COLOR = new THREE.Color("#262b27");
@@ -21,6 +21,7 @@ export function FloorStructure({
   showLabels,
   selectedZoneId,
   onSelectZone,
+  labelSafeArea,
 }: {
   floor: Floor;
   center: Floor;
@@ -30,8 +31,32 @@ export function FloorStructure({
   showLabels: boolean;
   selectedZoneId?: string | null;
   onSelectZone?: (zone: Zone) => void;
+  labelSafeArea: SafeArea;
 }) {
   const project = useMemo(() => makeProjector(floor, center), [floor, center]);
+
+  const labels = useMemo<SceneLabel[]>(
+    () =>
+      zones
+        .filter((zone) => zone.polygon.length >= 3)
+        .map((zone) => {
+          const occ = occupancy?.get(zone.id);
+          const over = occ?.capacity_threshold != null && occ.count > occ.capacity_threshold;
+          const minX = Math.min(...zone.polygon.map((p) => p.x));
+          const maxY = Math.max(...zone.polygon.map((p) => p.y));
+          return {
+            key: zone.id,
+            anchor: project(minX + 0.6, maxY - 0.6, 0.6),
+            text: zone.name,
+            accent: occ && occ.count > 0 ? String(occ.count) : undefined,
+            color: zone.is_restricted ? "#e5484d" : "#a4a69c",
+            accentColor: over ? "#e5484d" : occ ? densityHex(occ.density) : "#ece8de",
+            // The selected zone, then restricted ones, then the busiest keep their spot.
+            priority: (zone.id === selectedZoneId ? 1e6 : 0) + (zone.is_restricted ? 1e5 : 0) + (occ?.count ?? 0),
+          };
+        }),
+    [zones, occupancy, project, selectedZoneId]
+  );
   const layout = (floor.layout ?? {}) as FloorLayout;
   const wallHeight = layout.wall_height_m ?? 4;
 
@@ -92,10 +117,10 @@ export function FloorStructure({
             project={project}
             occupancy={occupancy?.get(zone.id)}
             selected={zone.id === selectedZoneId}
-            showLabel={showLabels}
             onSelect={onSelectZone}
           />
         ))}
+      {active && showLabels && <LabelLayer labels={labels} safeArea={labelSafeArea} />}
     </group>
   );
 }
@@ -105,17 +130,15 @@ function ZoneFootprint({
   project,
   occupancy,
   selected,
-  showLabel,
   onSelect,
 }: {
   zone: Zone;
   project: ReturnType<typeof makeProjector>;
   occupancy?: ZoneOccupancy;
   selected: boolean;
-  showLabel: boolean;
   onSelect?: (zone: Zone) => void;
 }) {
-  const { shape, outline, labelAt } = useMemo(() => {
+  const { shape, outline } = useMemo(() => {
     // Shapes live in the XY plane; we rotate them flat, so y must be the plan's -z.
     const pts = zone.polygon.map((p) => {
       const [x, , z] = project(p.x, p.y);
@@ -123,17 +146,10 @@ function ZoneFootprint({
     });
     const s = new THREE.Shape(pts);
     const outlinePts = [...zone.polygon, zone.polygon[0]!].map((p) => new THREE.Vector3(...project(p.x, p.y, 0.03)));
-    const minX = Math.min(...zone.polygon.map((p) => p.x));
-    const maxY = Math.max(...zone.polygon.map((p) => p.y));
-    return {
-      shape: s,
-      outline: new THREE.BufferGeometry().setFromPoints(outlinePts),
-      labelAt: project(minX + 0.6, maxY - 0.6, 0.6),
-    };
+    return { shape: s, outline: new THREE.BufferGeometry().setFromPoints(outlinePts) };
   }, [zone.polygon, project]);
 
   const base = project(0, 0)[1];
-  const level = occupancy ? densityLevel(occupancy.density) : null;
   const over = occupancy?.capacity_threshold != null && occupancy.count > occupancy.capacity_threshold;
   const tint = zone.is_restricted ? "#e5484d" : over ? "#e5484d" : "#ece8de";
 
@@ -158,15 +174,6 @@ function ZoneFootprint({
       <lineLoop geometry={outline}>
         <lineBasicMaterial color={selected ? "#f2a93b" : tint} transparent opacity={selected ? 1 : zone.is_restricted ? 0.6 : 0.28} />
       </lineLoop>
-      {showLabel && (
-        <LabelSprite
-          position={labelAt}
-          text={zone.name}
-          accent={occupancy && occupancy.count > 0 ? String(occupancy.count) : undefined}
-          color={zone.is_restricted ? "#e5484d" : "#a4a69c"}
-          accentColor={over ? "#e5484d" : level ? densityHex(occupancy!.density) : "#ece8de"}
-        />
-      )}
     </group>
   );
 }

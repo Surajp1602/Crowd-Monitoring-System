@@ -61,23 +61,55 @@ export function densityLevel(value: number): DensityLevel {
   return DENSITY_LEVELS.find((l) => value <= l.max) ?? DENSITY_LEVELS[DENSITY_LEVELS.length - 1]!;
 }
 
-/** Paints the field into RGBA pixels at grid resolution (row 0 = south edge). */
-export function fieldToImage(grid: Float32Array, rows: number, cols: number): ImageData {
-  const image = new ImageData(cols, rows);
-  for (let r = 0; r < rows; r++) {
+/** Index of the highest isoline level the value reaches: 0 below the first contour. */
+export function bandOf(value: number, levels: number[] = ISOLINE_LEVELS): number {
+  let band = 0;
+  while (band < levels.length && value >= levels[band]!) band++;
+  return band;
+}
+
+/** Contours from this level up carry severity colour; quieter ones stay paper. */
+export const BUSY_LEVEL = 3.5;
+
+/**
+ * Paints the field as stepped terraces: every pixel takes the flat wash of the band
+ * between two isolines, so the plan reads like a contour map rather than a heat blur.
+ * The grid is sampled bilinearly between cell centres (the same surface marching
+ * squares contours), `k` pixels per cell, row 0 = north edge.
+ */
+export function terraceImage(
+  grid: Float32Array,
+  rows: number,
+  cols: number,
+  k: number,
+  levels: number[],
+  wash: (level: number) => [number, number, number, number]
+): ImageData {
+  const w = cols * k;
+  const h = rows * k;
+  const image = new ImageData(Math.max(1, w), Math.max(1, h));
+  if (rows < 2 || cols < 2) return image;
+  const palette = levels.map(wash);
+  for (let py = 0; py < h; py++) {
     // Flip vertically: canvas row 0 is the north edge of the floor.
-    const outRow = rows - 1 - r;
-    for (let c = 0; c < cols; c++) {
-      const v = grid[r * cols + c]!;
-      const o = (outRow * cols + c) * 4;
-      if (v < 0.03) continue;
-      const [red, green, blue] = densityColor(v);
-      // Even a lone walker (~0.2 p/m² at the centre of their splat) must read on the plan.
-      const t = Math.min(1, (v - 0.03) / 0.6);
+    const gy = Math.min(rows - 1, Math.max(0, rows - 1 - ((py + 0.5) / k - 0.5)));
+    const r0 = Math.min(rows - 2, Math.floor(gy));
+    const ty = gy - r0;
+    for (let px = 0; px < w; px++) {
+      const gx = Math.min(cols - 1, Math.max(0, (px + 0.5) / k - 0.5));
+      const c0 = Math.min(cols - 2, Math.floor(gx));
+      const tx = gx - c0;
+      const i = r0 * cols + c0;
+      const bottom = grid[i]! + (grid[i + 1]! - grid[i]!) * tx;
+      const top = grid[i + cols]! + (grid[i + cols + 1]! - grid[i + cols]!) * tx;
+      const band = bandOf(bottom + (top - bottom) * ty, levels);
+      if (band === 0) continue;
+      const [red, green, blue, alpha] = palette[band - 1]!;
+      const o = (py * w + px) * 4;
       image.data[o] = red;
       image.data[o + 1] = green;
       image.data[o + 2] = blue;
-      image.data[o + 3] = Math.round(255 * (0.16 + 0.68 * t * t * (3 - 2 * t)));
+      image.data[o + 3] = alpha;
     }
   }
   return image;
@@ -147,4 +179,51 @@ export function isolines(
   return segments;
 }
 
+/**
+ * Joins marching-squares segments into polylines (flat [x0, y0, x1, y1, …] arrays), so
+ * strokes get real joins and dash patterns run continuously along a contour.
+ * Neighbouring cells compute shared edge points with the same arithmetic, so their
+ * endpoints match exactly.
+ */
+export function chainSegments(segments: Segment[]): number[][] {
+  const key = (x: number, y: number) => `${x.toFixed(4)},${y.toFixed(4)}`;
+  const ends = new Map<string, number[]>();
+  for (let i = 0; i < segments.length; i++) {
+    const [x1, y1, x2, y2] = segments[i]!;
+    for (const k of [key(x1, y1), key(x2, y2)]) {
+      const list = ends.get(k);
+      if (list) list.push(i);
+      else ends.set(k, [i]);
+    }
+  }
+  const used = new Uint8Array(segments.length);
+  const next = (x: number, y: number): [number, number] | null => {
+    for (const i of ends.get(key(x, y)) ?? []) {
+      if (used[i]) continue;
+      used[i] = 1;
+      const [x1, y1, x2, y2] = segments[i]!;
+      return key(x1, y1) === key(x, y) ? [x2, y2] : [x1, y1];
+    }
+    return null;
+  };
+  const lines: number[][] = [];
+  for (let i = 0; i < segments.length; i++) {
+    if (used[i]) continue;
+    used[i] = 1;
+    const [x1, y1, x2, y2] = segments[i]!;
+    const forward = [x1, y1, x2, y2];
+    for (let p = next(x2, y2); p; p = next(p[0], p[1])) forward.push(p[0], p[1]);
+    const backward: number[] = [];
+    for (let p = next(x1, y1); p; p = next(p[0], p[1])) backward.unshift(p[0], p[1]);
+    lines.push(backward.concat(forward));
+  }
+  return lines;
+}
+
 export const ISOLINE_LEVELS = [0.5, 1, 2, 3.5, 5];
+
+/**
+ * A dashed supplementary contour below the first legend level, as survey maps add
+ * half-interval lines on gentle ground: a quiet venue still shows where people are.
+ */
+export const SUPPLEMENTARY_LEVEL = 0.2;

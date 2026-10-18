@@ -2,12 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  BUSY_LEVEL,
   ISOLINE_LEVELS,
   decodeHeatmap,
+  densityColor,
   densityCss,
   densityLevel,
-  fieldToImage,
+  SUPPLEMENTARY_LEVEL,
+  chainSegments,
   isolines,
+  terraceImage,
 } from "@/lib/isolines";
 import type { HeatmapFrame, LivePerson } from "@/lib/live-types";
 import type { Camera, Floor, FloorLayout, Wall, Zone } from "@/lib/types";
@@ -63,6 +67,65 @@ interface FloorPlanProps {
 }
 
 const PADDING = 18;
+
+/** Terrace bitmap pixels per heatmap cell: enough for crisp steps once upscaled. */
+const TERRACE_K = 6;
+
+const TERRACE_LEVELS = [SUPPLEMENTARY_LEVEL, ...ISOLINE_LEVELS];
+
+/** Paper contours grow firmer with density, like index contours on a survey map. */
+const CONTOUR_ALPHA: Record<number, number> = { [SUPPLEMENTARY_LEVEL]: 0.55, 0.5: 0.55, 1: 0.7, 2: 0.85 };
+
+/** Each band a touch lighter than the one below; busy bands take a whisper of severity. */
+function terraceWash(level: number): [number, number, number, number] {
+  if (level >= BUSY_LEVEL) {
+    const [r, g, b] = densityColor(level);
+    return [r, g, b, level >= 5 ? 64 : 44];
+  }
+  return [236, 232, 222, 6 + TERRACE_LEVELS.indexOf(level) * 9];
+}
+
+interface LabelBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rows: string[];
+  /** Row the zone's head count is drawn on, -1 for none. */
+  countRow: number;
+  font: string;
+  lineHeight: number;
+}
+
+const boxesOverlap = (a: LabelBox, b: LabelBox) =>
+  a.x < b.x + b.w + 2 && b.x < a.x + a.w + 2 && a.y < b.y + b.h + 2 && b.y < a.y + a.h + 2;
+
+const LABEL_FONTS = [
+  { font: '500 10px "JetBrains Mono Variable", monospace', lineHeight: 12 },
+  { font: '500 9px "JetBrains Mono Variable", monospace', lineHeight: 11 },
+];
+
+/**
+ * Wraps a zone name onto at most two lines that fit its zone's width, once per label
+ * font size, largest first. Sizes at which a single word would spill are left out.
+ */
+function fitLabel(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
+  const fits: Array<{ lines: string[]; font: string; lineHeight: number }> = [];
+  if (maxWidth <= 0) return fits;
+  for (const { font, lineHeight } of LABEL_FONTS) {
+    ctx.font = font;
+    const lines: string[] = [];
+    let ok = true;
+    for (const word of text.split(/\s+/)) {
+      const last = lines[lines.length - 1];
+      if (last && ctx.measureText(`${last} ${word}`).width <= maxWidth) lines[lines.length - 1] = `${last} ${word}`;
+      else lines.push(word);
+      if (ctx.measureText(word).width > maxWidth) ok = false;
+    }
+    if (ok && lines.length <= 2) fits.push({ lines, font, lineHeight });
+  }
+  return fits;
+}
 
 function pointInPolygon(x: number, y: number, polygon: Array<{ x: number; y: number }>) {
   let inside = false;
@@ -129,14 +192,14 @@ export function FloorPlan({
   const field = useMemo(() => {
     if (!heatmap || heatmap.floor_id !== floor.id) return null;
     const grid = decodeHeatmap(heatmap);
-    const image = fieldToImage(grid, heatmap.rows, heatmap.cols);
-    const lines = ISOLINE_LEVELS.map((level) => ({
+    const image = terraceImage(grid, heatmap.rows, heatmap.cols, TERRACE_K, TERRACE_LEVELS, terraceWash);
+    const lines = TERRACE_LEVELS.map((level) => ({
       level,
-      segments: isolines(grid, heatmap.rows, heatmap.cols, heatmap.resolution_m, level),
+      paths: chainSegments(isolines(grid, heatmap.rows, heatmap.cols, heatmap.resolution_m, level)),
     }));
     const bitmap = document.createElement("canvas");
-    bitmap.width = heatmap.cols;
-    bitmap.height = heatmap.rows;
+    bitmap.width = image.width;
+    bitmap.height = image.height;
     bitmap.getContext("2d")?.putImageData(image, 0, 0);
     return { bitmap, lines, heatmap };
   }, [heatmap, floor.id]);
@@ -220,7 +283,8 @@ export function FloorPlan({
       ctx.setLineDash([]);
     }
 
-    // Density field, smoothed by bilinear upscaling, then its isolines.
+    // Density field as a contour map: faint stepped terraces between the isolines,
+    // then the isolines themselves as hairlines. Only busy contours carry colour.
     if (field) {
       const hm = field.heatmap;
       ctx.save();
@@ -229,24 +293,28 @@ export function FloorPlan({
       ctx.clip();
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
-      // Soften the cell grid so the field reads as a continuous surface.
-      ctx.filter = `blur(${Math.max(1, hm.resolution_m * scale * 0.6).toFixed(1)}px)`;
       const [gx, gy] = toPx(0, hm.rows * hm.resolution_m);
       ctx.drawImage(field.bitmap, gx, gy, hm.cols * hm.resolution_m * scale, hm.rows * hm.resolution_m * scale);
-      ctx.filter = "none";
-      for (const { level, segments } of field.lines) {
-        if (!segments.length) continue;
-        ctx.strokeStyle = level >= 3.5 ? densityCss(level, 0.95) : `rgb(236 232 222 / ${0.18 + level * 0.08})`;
-        ctx.lineWidth = level >= 3.5 ? 1.4 : 0.9;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      for (const { level, paths } of field.lines) {
+        if (!paths.length) continue;
+        const busy = level >= BUSY_LEVEL;
+        ctx.strokeStyle = busy ? densityCss(level, 1) : `rgb(236 232 222 / ${CONTOUR_ALPHA[level] ?? 0.6})`;
+        ctx.lineWidth = busy ? 1.25 : level === SUPPLEMENTARY_LEVEL ? 1.2 : compact ? 0.75 : 0.9;
+        // Dotted, so the supplementary line never reads as a dashed zone outline.
+        ctx.setLineDash(level === SUPPLEMENTARY_LEVEL ? [0.1, 3] : []);
         ctx.beginPath();
-        for (const [x1, y1, x2, y2] of segments) {
-          const [a, b] = toPx(x1, y1);
-          const [c, d] = toPx(x2, y2);
-          ctx.moveTo(a, b);
-          ctx.lineTo(c, d);
+        for (const path of paths) {
+          for (let i = 0; i < path.length; i += 2) {
+            const [px, py] = toPx(path[i]!, path[i + 1]!);
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
         }
         ctx.stroke();
       }
+      ctx.setLineDash([]);
       ctx.restore();
     }
 
@@ -307,20 +375,64 @@ export function FloorPlan({
     }
 
     if (!compact) {
-      ctx.font = '500 10px "JetBrains Mono Variable", monospace';
       ctx.textBaseline = "top";
-      for (const zone of zones) {
-        if (zone.polygon.length < 3) continue;
-        const minX = Math.min(...zone.polygon.map((p) => p.x));
-        const maxY = Math.max(...zone.polygon.map((p) => p.y));
-        const [lx, ly] = toPx(minX, maxY);
+      const placed: LabelBox[] = [];
+      // Busiest zones claim their corner first; the rest wrap, shift down or drop out.
+      const ordered = [...zones]
+        .filter((z) => z.polygon.length >= 3)
+        .sort((a, b) => (occupancy.get(b.id)?.count ?? 0) - (occupancy.get(a.id)?.count ?? 0));
+      for (const zone of ordered) {
+        const xs = zone.polygon.map((p) => p.x);
+        const ys = zone.polygon.map((p) => p.y);
+        const [lx, ly] = toPx(Math.min(...xs), Math.max(...ys));
+        const [rx, by] = toPx(Math.max(...xs), Math.min(...ys));
         const occ = occupancy.get(zone.id);
-        ctx.fillStyle = zone.is_restricted ? "rgb(229 72 77 / 0.85)" : "rgb(236 232 222 / 0.55)";
-        ctx.fillText(zone.name.toUpperCase(), lx + 5, ly + 5);
-        if (occ && occ.count > 0) {
-          ctx.fillStyle = "rgb(236 232 222 / 0.9)";
-          ctx.fillText(`${occ.count}`, lx + 5, ly + 17);
+        const count = occ && occ.count > 0 ? `${occ.count}` : null;
+        const maxWidth = Math.min(rx, size.w) - lx - 10;
+        const zoneBottom = Math.min(by, size.h) - 1;
+        let box: LabelBox | null = null;
+        // Largest font first. The count takes its own line, or rides on the shortest
+        // name line when the zone is too short for that.
+        for (const fit of fitLabel(ctx, zone.name.toUpperCase(), maxWidth)) {
+          ctx.font = fit.font;
+          const widths = fit.lines.map((l) => ctx.measureText(l).width);
+          const layouts: Array<{ rows: string[]; countRow: number }> = [];
+          if (count) {
+            layouts.push({ rows: [...fit.lines, ""], countRow: fit.lines.length });
+            const shortest = widths.indexOf(Math.min(...widths));
+            if (ctx.measureText(`${fit.lines[shortest]}  ${count}`).width <= maxWidth) {
+              layouts.push({ rows: fit.lines, countRow: shortest });
+            }
+          } else {
+            layouts.push({ rows: fit.lines, countRow: -1 });
+          }
+          for (const { rows, countRow } of layouts) {
+            const w =
+              Math.max(...rows.map((l, i) => ctx.measureText(i === countRow ? `${l}  ${count}` : l).width)) + 6;
+            const h = rows.length * fit.lineHeight + 2;
+            const x = Math.min(lx + 2, size.w - w - 2);
+            for (let y = ly + 1; y + h <= zoneBottom && !box; y += fit.lineHeight) {
+              const candidate = { x, y, w, h, rows, countRow, font: fit.font, lineHeight: fit.lineHeight };
+              if (!placed.some((p) => boxesOverlap(p, candidate))) box = candidate;
+            }
+            if (box) break;
+          }
+          if (box) break;
         }
+        if (!box) continue;
+        placed.push(box);
+        ctx.fillStyle = "rgb(12 14 13 / 0.72)";
+        ctx.fillRect(box.x, box.y, box.w, box.h);
+        ctx.font = box.font;
+        box.rows.forEach((line, i) => {
+          const ty = box.y + 1.5 + i * box.lineHeight;
+          ctx.fillStyle = zone.is_restricted ? "rgb(229 72 77 / 0.85)" : "rgb(236 232 222 / 0.6)";
+          ctx.fillText(line, box.x + 3, ty);
+          if (i === box.countRow && count) {
+            ctx.fillStyle = "rgb(236 232 222 / 0.9)";
+            ctx.fillText(count, box.x + 3 + (line ? ctx.measureText(`${line}  `).width : 0), ty);
+          }
+        });
       }
     }
 

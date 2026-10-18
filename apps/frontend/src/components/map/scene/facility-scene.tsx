@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { AlertMarkers } from "@/components/map/scene/alert-markers";
 import { CameraLayer } from "@/components/map/scene/cameras";
+import type { SafeArea } from "@/components/map/scene/label-sprite";
 import { PeopleLayer } from "@/components/map/scene/people";
 import { FloorStructure } from "@/components/map/scene/structure";
 import { DensityTerrain } from "@/components/map/scene/terrain";
@@ -41,19 +42,40 @@ interface FacilitySceneProps {
   selectedCameraId?: string | null;
   onSelectZone?: (zone: Zone | null) => void;
   onSelectCamera?: (camera: Camera | null) => void;
+  /** Canvas pixels covered by overlays at the top and bottom, kept free of labels. */
+  labelSafeArea?: SafeArea;
 }
 
-function presetPose(preset: ViewPreset, floor: Floor): { position: THREE.Vector3; target: THREE.Vector3 } {
-  const span = Math.max(floor.width_m, floor.depth_m);
+const NO_INSETS: SafeArea = { top: 0, bottom: 0 };
+
+const FOV = 38;
+
+function presetPose(
+  preset: ViewPreset,
+  floor: Floor,
+  aspect = 16 / 10
+): { position: THREE.Vector3; target: THREE.Vector3 } {
   const target = new THREE.Vector3(0, 0, 0);
-  if (preset === "plan") return { position: new THREE.Vector3(0, span * 1.25, 0.001), target };
+  if (preset === "plan") {
+    // Straight down, far enough that the whole floor fits the canvas in both directions.
+    const t = Math.tan(((FOV / 2) * Math.PI) / 180);
+    const height = Math.max(floor.depth_m / (2 * t), floor.width_m / (2 * t * aspect)) * 1.12;
+    return { position: new THREE.Vector3(0, height, 0.001), target };
+  }
+  // On a canvas taller than wide, pull back so the floor's width still fits.
+  const span = Math.max(floor.width_m, floor.depth_m) * Math.max(1, 1.2 / aspect);
   if (preset === "low") return { position: new THREE.Vector3(-span * 0.55, span * 0.18, span * 0.62), target };
   return { position: new THREE.Vector3(span * 0.35, span * 0.62, span * 0.78), target };
 }
 
 /** Eases the camera to a preset pose, then hands control back to the orbit controls. */
 function CameraRig({ preset, floor }: { preset: ViewPreset; floor: Floor }) {
-  const { camera, controls } = useThree();
+  const { camera, controls, size } = useThree();
+  // Read when the preset or floor changes; a resize alone keeps the user's view.
+  const aspect = useRef(1);
+  useEffect(() => {
+    aspect.current = size.width / Math.max(1, size.height);
+  }, [size]);
   const goal = useRef<ReturnType<typeof presetPose> | null>(null);
   const reduce = useMemo(
     () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
@@ -61,7 +83,7 @@ function CameraRig({ preset, floor }: { preset: ViewPreset; floor: Floor }) {
   );
 
   useEffect(() => {
-    goal.current = presetPose(preset, floor);
+    goal.current = presetPose(preset, floor, aspect.current);
     if (reduce && controls) {
       camera.position.copy(goal.current.position);
       (controls as unknown as OrbitControlsImpl).target.copy(goal.current.target);
@@ -97,6 +119,7 @@ export function FacilityScene({
   selectedCameraId,
   onSelectZone,
   onSelectCamera,
+  labelSafeArea = NO_INSETS,
 }: FacilitySceneProps) {
   const occupancy = useMemo(() => new Map((heatmap?.zones ?? []).map((z) => [z.zone_id, z])), [heatmap]);
   const initial = presetPose("terrain", floor);
@@ -106,7 +129,7 @@ export function FacilityScene({
     <Canvas
       shadows={false}
       dpr={[1, 2]}
-      camera={{ position: initial.position.toArray(), fov: 38, near: 0.5, far: 2000 }}
+      camera={{ position: initial.position.toArray(), fov: FOV, near: 0.5, far: 2000 }}
       gl={{ antialias: true, alpha: false }}
       onPointerMissed={() => {
         onSelectZone?.(null);
@@ -130,6 +153,7 @@ export function FacilityScene({
           showLabels={layers.labels && f.id === floor.id}
           selectedZoneId={selectedZoneId}
           onSelectZone={(z) => onSelectZone?.(z)}
+          labelSafeArea={labelSafeArea}
         />
       ))}
 
@@ -148,7 +172,7 @@ export function FacilityScene({
         dampingFactor={0.08}
         maxPolarAngle={Math.PI / 2.05}
         minDistance={8}
-        maxDistance={Math.max(floor.width_m, floor.depth_m) * 3}
+        maxDistance={Math.max(floor.width_m, floor.depth_m) * 4}
       />
       <CameraRig preset={preset} floor={floor} />
     </Canvas>
