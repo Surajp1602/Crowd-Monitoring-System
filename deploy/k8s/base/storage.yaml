@@ -1,0 +1,22 @@
+# Alert snapshots: written by the ai-service, served (signed) by the backend, so both mount it.
+# Needs a ReadWriteMany storage class (EFS, Azure Files, Filestore, NFS, Longhorn RWX ...).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ccd-media
+spec:
+  accessModes: [ReadWriteMany]
+  resources:
+    requests:
+      storage: 50Gi
+---
+# Model weights, downloaded once by the ai-service.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ccd-models
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi

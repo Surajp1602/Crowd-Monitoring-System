@@ -1,0 +1,29 @@
+# CCD on Kubernetes. The base runs the application tier and expects Postgres and Redis to be
+# reachable at the URLs in the ccd-secrets Secret (managed services in production; the dev overlay
+# adds in-cluster ones). Apply an overlay, not the base:
+#   kubectl apply -k deploy/k8s/overlays/dev
+#   kubectl apply -k deploy/k8s/overlays/production
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ccd
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: ccd
+    includeSelectors: false
+
+resources:
+  - namespace.yaml
+  - config.yaml
+  - storage.yaml
+  - migrate-job.yaml
+  - backend.yaml
+  - ai-service.yaml
+  - worker.yaml
+  - frontend.yaml
+  - edge.yaml
+  - network-policy.yaml
+
+
+# Image names (ccd-backend, ccd-ai-service, ccd-worker, ccd-frontend, ccd-edge) are placeholders;
+# each overlay maps them to a registry and tag.

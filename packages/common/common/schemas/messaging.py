@@ -74,3 +74,33 @@ class CameraHealthMessage(BaseModel):
     latency_ms: float
     ts: datetime
     error: Optional[str] = None
+
+
+class ZoneOccupancyDTO(BaseModel):
+    zone_id: str
+    name: str
+    count: int
+    density: float
+    """People per square meter over the zone's polygon area."""
+    capacity_threshold: Optional[int] = None
+    is_restricted: bool = False
+
+
+class HeatmapFrameMessage(BaseModel):
+    """Published by ai-service on `stream:heatmap:{floor_id}` about once a second and
+    cached at `heatmap:{floor_id}`. `cells` is a base64 row-major uint8 grid where
+    value = byte / 255 * scale_max, in people per square meter."""
+
+    floor_id: str
+    ts: datetime
+    width_m: float
+    depth_m: float
+    resolution_m: float
+    rows: int
+    cols: int
+    scale_max: float
+    max_density: float
+    total_people: int
+    cells: str
+    zones: list[ZoneOccupancyDTO] = Field(default_factory=list)
+    camera_ids: list[str] = Field(default_factory=list)

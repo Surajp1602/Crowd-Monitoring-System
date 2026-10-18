@@ -1,0 +1,53 @@
+# Detection and tracking. One replica owns every camera worker (it reconciles the camera table and
+# listens on the camera command channel), so it is a singleton: Recreate, never two at once.
+# The production overlay schedules it on a GPU node.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: ai-service }
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: ai-service }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: ai-service
+          image: ccd-ai-service
+          ports:
+            - { name: health, containerPort: 8080 }
+          envFrom:
+            - configMapRef: { name: ccd-config }
+            - secretRef: { name: ccd-secrets }
+          env:
+            - { name: MODEL_CACHE_DIR, value: /data/models }
+          readinessProbe:
+            httpGet: { path: /health, port: health }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: health }
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          resources:
+            requests: { cpu: "1", memory: 2Gi }
+            limits: { memory: 6Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: media, mountPath: /data/media }
+            - { name: models, mountPath: /data/models }
+      volumes:
+        - name: media
+          persistentVolumeClaim: { claimName: ccd-media }
+        - name: models
+          persistentVolumeClaim: { claimName: ccd-models }

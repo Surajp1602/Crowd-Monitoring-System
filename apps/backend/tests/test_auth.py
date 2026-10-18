@@ -51,3 +51,13 @@ async def test_guest_cannot_create_camera(client):
         },
     )
     assert resp.status_code == 403
+
+
+async def test_demo_team_is_listed_but_cannot_sign_in(client, db_session):
+    from app.db.demo_seed import DEMO_TEAM, seed_demo_team
+
+    assert await seed_demo_team(db_session) == len(DEMO_TEAM)
+    assert await seed_demo_team(db_session) == 0  # idempotent across restarts
+    await db_session.commit()
+    resp = await client.post("/api/v1/auth/login", json={"email": DEMO_TEAM[0][1], "password": ""})
+    assert resp.status_code in (401, 422)

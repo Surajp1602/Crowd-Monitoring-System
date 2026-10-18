@@ -3,7 +3,9 @@ from common.schemas.messaging import (
     BoxDTO,
     CameraHealthMessage,
     DetectionFrameMessage,
+    HeatmapFrameMessage,
     TrackUpdateMessage,
+    ZoneOccupancyDTO,
 )
 
 __all__ = [
@@ -11,5 +13,7 @@ __all__ = [
     "BoxDTO",
     "CameraHealthMessage",
     "DetectionFrameMessage",
+    "HeatmapFrameMessage",
     "TrackUpdateMessage",
+    "ZoneOccupancyDTO",
 ]

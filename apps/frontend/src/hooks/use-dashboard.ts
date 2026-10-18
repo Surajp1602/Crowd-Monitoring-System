@@ -15,7 +15,7 @@ export function useDashboardSummary() {
 export function useRecentAlerts(limit = 8) {
   return useQuery({
     queryKey: ["alerts", "recent", limit],
-    queryFn: () => apiFetch<Page<Alert>>(`/api/v1/alerts?page_size=${limit}`),
+    queryFn: () => apiFetch<Page<Alert>>(`/api/v1/alerts?page_size=${limit}&status=open&status=acknowledged`),
     refetchInterval: 10_000,
   });
 }

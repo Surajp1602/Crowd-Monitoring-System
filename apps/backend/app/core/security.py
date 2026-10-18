@@ -2,9 +2,11 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
-from cryptography.fernet import Fernet
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+
+from common.crypto import decrypt_secret as _decrypt_secret
+from common.crypto import encrypt_secret as _encrypt_secret
 
 from app.core.config import get_settings
 
@@ -59,13 +61,9 @@ def decode_token(token: str) -> dict[str, Any]:
         raise ValueError("Invalid or expired token") from exc
 
 
-def _fernet() -> Fernet:
-    return Fernet(settings.CAMERA_CREDENTIAL_ENCRYPTION_KEY.encode())
-
-
 def encrypt_secret(plain: str) -> str:
-    return _fernet().encrypt(plain.encode()).decode()
+    return _encrypt_secret(plain, settings.CAMERA_CREDENTIAL_ENCRYPTION_KEY)
 
 
 def decrypt_secret(token: str) -> str:
-    return _fernet().decrypt(token.encode()).decode()
+    return _decrypt_secret(token, settings.CAMERA_CREDENTIAL_ENCRYPTION_KEY)

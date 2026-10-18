@@ -45,12 +45,12 @@ export function LoginForm() {
 
   return (
     <TabsPrimitive.Root defaultValue="authority" className="w-full">
-      <TabsPrimitive.List className="mb-6 grid grid-cols-2 rounded-lg border border-border bg-white/[0.03] p-1 text-sm">
+      <TabsPrimitive.List className="mb-7 grid grid-cols-2 gap-1 rounded-[4px] border border-rule p-0.5">
         <TabsPrimitive.Trigger
           value="authority"
           className={cn(
-            "flex items-center justify-center gap-1.5 rounded-md py-2 text-muted-foreground transition-colors",
-            "data-[state=active]:bg-primary/15 data-[state=active]:text-primary"
+            "flex items-center justify-center gap-1.5 rounded-[3px] py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-paper-faint transition-colors hover:text-paper",
+            "data-[state=active]:bg-ink-4 data-[state=active]:text-paper"
           )}
         >
           <ShieldCheck className="size-3.5" />
@@ -59,8 +59,8 @@ export function LoginForm() {
         <TabsPrimitive.Trigger
           value="guest"
           className={cn(
-            "flex items-center justify-center gap-1.5 rounded-md py-2 text-muted-foreground transition-colors",
-            "data-[state=active]:bg-primary/15 data-[state=active]:text-primary"
+            "flex items-center justify-center gap-1.5 rounded-[3px] py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-paper-faint transition-colors hover:text-paper",
+            "data-[state=active]:bg-ink-4 data-[state=active]:text-paper"
           )}
         >
           <UserRound className="size-3.5" />
@@ -79,7 +79,7 @@ export function LoginForm() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@ccd-platform.com"
+              placeholder="you@organisation.com"
             />
           </div>
           <div className="space-y-1.5">
@@ -98,14 +98,14 @@ export function LoginForm() {
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                tabIndex={-1}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-paper-faint hover:text-paper"
+                aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </button>
             </div>
           </div>
-          <Button type="submit" className="w-full" disabled={login.isPending}>
+          <Button type="submit" size="lg" className="mt-2 w-full" disabled={login.isPending}>
             {login.isPending ? "Signing in..." : "Sign in"}
           </Button>
         </form>
@@ -113,14 +113,14 @@ export function LoginForm() {
 
       <TabsPrimitive.Content value="guest">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Browse live cameras, the facility map, and analytics in read-only mode. No account
-            required — guest sessions expire automatically and cannot manage cameras, alerts, or
-            users.
+          <p className="text-sm leading-relaxed text-paper-dim">
+            Watch live cameras, the facility map and analytics read-only. No account needed. Guest
+            sessions expire after two hours and cannot see alerts or change anything.
           </p>
           <Button
             type="button"
-            variant="secondary"
+            variant="outline"
+            size="lg"
             className="w-full"
             onClick={handleGuest}
             disabled={guestLogin.isPending}

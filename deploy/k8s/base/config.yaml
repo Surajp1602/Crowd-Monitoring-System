@@ -1,0 +1,26 @@
+# Non-secret settings shared by the services. Secrets (database and Redis URLs, keys, provider
+# credentials) come from the ccd-secrets Secret; see secrets.example.env in each overlay.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ccd-config
+data:
+  ENVIRONMENT: production
+  DEBUG: "false"
+  TRUST_PROXY_HEADERS: "true"
+  BACKEND_URL: http://backend:8000
+  STORAGE_DIR: /data/media
+  MEDIA_DIR: /data/media
+  SEED_DEMO_DATA: "false"
+  SEED_DEMO_HISTORY: "false"
+  AI_SERVICE_DEVICE: auto
+  DEVICE: auto
+  APP_HOST: control.example.com
+  SITE_HOST: www.example.com
+  PUBLIC_DASHBOARD_URL: https://control.example.com
+  CORS_ORIGINS: '["https://control.example.com"]'
+  NOTIFICATION_EMAIL_PROVIDER: smtp
+  NOTIFICATION_SMS_PROVIDER: noop
+  NOTIFICATION_WHATSAPP_PROVIDER: noop
+  NOTIFICATION_PUSH_PROVIDER: noop
+  NOTIFICATION_ANNOUNCEMENT_PROVIDER: noop

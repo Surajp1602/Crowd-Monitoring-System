@@ -111,7 +111,9 @@ def create_guest_access_token() -> str:
     return create_access_token(user_id="guest", role=RoleName.GUEST.value, is_guest=True, permissions=permissions)
 
 
-async def create_user(db: AsyncSession, *, email: str, password: str, full_name: str, role_name: str) -> User:
+async def create_user(
+    db: AsyncSession, *, email: str, password: str, full_name: str, role_name: str, phone_number: str | None = None
+) -> User:
     existing = await _load_user_with_role(db, email)
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
@@ -126,6 +128,7 @@ async def create_user(db: AsyncSession, *, email: str, password: str, full_name:
         hashed_password=hash_password(password),
         full_name=full_name,
         role_id=role.id,
+        phone_number=phone_number,
         is_active=True,
         is_guest=False,
     )

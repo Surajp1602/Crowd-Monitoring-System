@@ -4,7 +4,7 @@ from typing import Optional
 
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy import DateTime, Float, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from common.enums import AlertSeverity, AlertStatus, AlertType, EventType
 from common.models.base import Base, TimestampMixin, UUIDPKMixin

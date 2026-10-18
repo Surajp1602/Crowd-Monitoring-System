@@ -1,0 +1,45 @@
+# A self-contained cluster for trying CCD (kind, minikube, k3d, Docker Desktop): in-cluster
+# Postgres and Redis, the simulated demo station, CPU inference, single replicas, local images.
+#
+#   sh infra/scripts/dev-certs.sh
+#   kubectl create namespace ccd
+#   kubectl -n ccd create secret tls ccd-tls --cert=infra/nginx/certs/fullchain.pem --key=infra/nginx/certs/privkey.pem
+#   kubectl apply -k deploy/k8s/overlays/dev
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - data-stores.yaml
+
+secretGenerator:
+  - name: ccd-secrets
+    namespace: ccd
+    envs: [secrets.dev.env]
+    options:
+      disableNameSuffixHash: true
+
+patches:
+  - target: { kind: ConfigMap, name: ccd-config }
+    patch: |-
+      - { op: replace, path: /data/ENVIRONMENT, value: development }
+      - { op: replace, path: /data/SEED_DEMO_DATA, value: "true" }
+      - { op: replace, path: /data/SEED_DEMO_HISTORY, value: "true" }
+      - { op: replace, path: /data/APP_HOST, value: app.localhost }
+      - { op: replace, path: /data/SITE_HOST, value: localhost }
+      - { op: replace, path: /data/PUBLIC_DASHBOARD_URL, value: "https://app.localhost" }
+      - { op: replace, path: /data/CORS_ORIGINS, value: '["https://app.localhost"]' }
+      - { op: replace, path: /data/NOTIFICATION_EMAIL_PROVIDER, value: console }
+  - target: { kind: Deployment }
+    patch: |-
+      - { op: replace, path: /spec/replicas, value: 1 }
+  - target: { kind: PersistentVolumeClaim, name: ccd-media }
+    patch: |-
+      - { op: replace, path: /spec/accessModes, value: [ReadWriteOnce] }
+      - { op: replace, path: /spec/resources/requests/storage, value: 2Gi }
+
+images:
+  - { name: ccd-backend, newName: crowd-density-backend, newTag: latest }
+  - { name: ccd-ai-service, newName: crowd-density-ai, newTag: latest }
+  - { name: ccd-worker, newName: crowd-density-worker, newTag: latest }
+  - { name: ccd-frontend, newName: crowd-density-frontend, newTag: latest }
+  - { name: ccd-edge, newName: crowd-density-edge, newTag: latest }

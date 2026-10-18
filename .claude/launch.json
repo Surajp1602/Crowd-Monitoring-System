@@ -4,8 +4,86 @@
     {
       "name": "frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "apps/frontend"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "apps/frontend"
+      ],
       "port": 3000
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "D:/crowd-density/apps/backend/.venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "app.main:app",
+        "--app-dir",
+        "apps/backend",
+        "--port",
+        "8000"
+      ],
+      "cwd": "apps/backend",
+      "env": {
+        "DATABASE_URL": "postgresql+asyncpg://ccd:ccd@localhost:5433/ccd",
+        "REDIS_URL": "redis://localhost:6379/0",
+        "SEED_DEMO_DATA": "true",
+        "CORS_ORIGINS": "[\"http://localhost:3000\",\"http://localhost:5173\",\"http://localhost:4173\"]",
+        "STORAGE_DIR": "D:/crowd-density/media"
+      },
+      "port": 8000
+    },
+    {
+      "name": "ai-service",
+      "runtimeExecutable": "D:/crowd-density/apps/ai-service/.venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "app.main"
+      ],
+      "cwd": "apps/ai-service",
+      "env": {
+        "DATABASE_URL": "postgresql+asyncpg://ccd:ccd@localhost:5433/ccd",
+        "REDIS_URL": "redis://localhost:6379/0",
+        "BACKEND_URL": "http://localhost:8000",
+        "HEALTH_PORT": "8080",
+        "MEDIA_DIR": "D:/crowd-density/media"
+      },
+      "port": 8080
+    },
+    {
+      "name": "worker",
+      "runtimeExecutable": "D:/crowd-density/apps/worker/.venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "app.main"
+      ],
+      "cwd": "apps/worker",
+      "env": {
+        "DATABASE_URL": "postgresql+asyncpg://ccd:ccd@localhost:5433/ccd",
+        "REDIS_URL": "redis://localhost:6379/0",
+        "NOTIFICATION_EMAIL_PROVIDER": "console",
+        "NOTIFICATION_SMS_PROVIDER": "console",
+        "NOTIFICATION_WHATSAPP_PROVIDER": "console",
+        "NOTIFICATION_PUSH_PROVIDER": "console",
+        "NOTIFICATION_ANNOUNCEMENT_PROVIDER": "console",
+        "SEED_DEMO_HISTORY": "true"
+      },
+      "port": 8090
+    },
+    {
+      "name": "landing",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "apps/landing",
+        "--",
+        "--port",
+        "5173"
+      ],
+      "port": 5173
     }
   ]
 }

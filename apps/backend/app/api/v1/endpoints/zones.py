@@ -3,7 +3,9 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from common.rbac import Perm
+from common.redis_channels import CAMERA_COMMANDS_CHANNEL
 
+from app.core.redis import publish_event
 from app.deps import DbSession, require_permission
 from app.repositories.entities import ZoneRepository
 from app.schemas.common import Page
@@ -30,6 +32,7 @@ async def create_zone(payload: ZoneCreate, db: DbSession):
     zone = await repo.create(**payload.model_dump())
     await db.commit()
     await db.refresh(zone)
+    await publish_event(CAMERA_COMMANDS_CHANNEL, {"action": "map_changed", "zone_id": str(zone.id)})
     return ZoneRead.model_validate(zone)
 
 
@@ -50,6 +53,7 @@ async def update_zone(zone_id: uuid.UUID, payload: ZoneUpdate, db: DbSession):
     zone = await repo.update(zone, **payload.model_dump(exclude_unset=True))
     await db.commit()
     await db.refresh(zone)
+    await publish_event(CAMERA_COMMANDS_CHANNEL, {"action": "map_changed", "zone_id": str(zone.id)})
     return ZoneRead.model_validate(zone)
 
 
@@ -61,3 +65,4 @@ async def delete_zone(zone_id: uuid.UUID, db: DbSession):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zone not found")
     await repo.delete(zone)
     await db.commit()
+    await publish_event(CAMERA_COMMANDS_CHANNEL, {"action": "map_changed", "zone_id": str(zone_id)})

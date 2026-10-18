@@ -28,3 +28,19 @@ HEATMAP_KEY_PREFIX = "heatmap:"
 
 CAMERA_HEALTH_KEY_PREFIX = "camera:health:"
 """Redis key prefix (+ camera_id) holding the last-known CameraHealthMessage as a hash."""
+
+
+def heatmap_channel(floor_id: str) -> str:
+    return f"stream:heatmap:{floor_id}"
+
+
+STREAM_PATTERN = "stream:*"
+"""Everything the WebSocket gateway fans out to dashboards lives under this prefix."""
+
+ALERTS_STREAM = "alerts:dispatch"
+"""Redis Stream (XADD) of persisted alerts, consumed by the worker's notification
+dispatcher through a consumer group so each alert is dispatched exactly once even
+with several worker replicas. Pub/sub `stream:alerts` stays the live UI fan-out."""
+
+WORKER_HEARTBEAT_KEY = "worker:heartbeat"
+AI_SERVICE_HEARTBEAT_KEY = "ai-service:heartbeat"

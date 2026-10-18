@@ -1,0 +1,44 @@
+{
+ "A": {
+  "design": 5.4,
+  "usability": 6.0,
+  "creativity": 4.5,
+  "content": 7.0,
+  "overall": 5.6
+ },
+ "B": {
+  "design": 6.3,
+  "usability": 6.5,
+  "creativity": 6.8,
+  "content": 7.0,
+  "overall": 6.5
+ },
+ "C": {
+  "design": 5.0,
+  "usability": 4.3,
+  "creativity": 6.0,
+  "content": 6.5,
+  "overall": 5.1
+ },
+ "D": {
+  "design": 5.0,
+  "usability": 6.0,
+  "creativity": 5.8,
+  "content": 7.2,
+  "overall": 5.7
+ },
+ "E": {
+  "design": 3.4,
+  "usability": 3.6,
+  "creativity": 2.5,
+  "content": 6.0,
+  "overall": 3.5
+ },
+ "F": {
+  "design": 5.5,
+  "usability": 3.5,
+  "creativity": 6.0,
+  "content": 0.5,
+  "overall": 4.5
+ }
+}

@@ -22,11 +22,14 @@ export const cameraStatusBadge: Record<CameraStatus, { label: string; variant: "
   disabled: { label: "Disabled", variant: "muted" },
 };
 
-export const alertSeverityBadge: Record<AlertSeverity, { label: string; variant: "success" | "warning" | "destructive" | "secondary" }> = {
-  low: { label: "Low", variant: "success" },
+export const alertSeverityBadge: Record<
+  AlertSeverity,
+  { label: string; variant: "outline" | "warning" | "high" | "critical" }
+> = {
+  low: { label: "Low", variant: "outline" },
   medium: { label: "Medium", variant: "warning" },
-  high: { label: "High", variant: "destructive" },
-  critical: { label: "Critical", variant: "destructive" },
+  high: { label: "High", variant: "high" },
+  critical: { label: "Critical", variant: "critical" },
 };
 
 export function formatAlertType(type: string): string {

@@ -3,17 +3,19 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors",
+  "inline-flex items-center gap-1.5 rounded-[3px] border px-1.5 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.06em]",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary/15 text-primary",
-        secondary: "border-transparent bg-secondary text-secondary-foreground",
-        outline: "border-border text-foreground",
-        success: "border-transparent bg-severity-moderate/15 text-severity-moderate",
-        warning: "border-transparent bg-severity-busy/15 text-severity-busy",
-        destructive: "border-transparent bg-destructive/15 text-destructive",
-        muted: "border-transparent bg-muted text-muted-foreground",
+        default: "border-amber/40 text-amber",
+        secondary: "border-transparent bg-ink-3 text-paper-dim",
+        outline: "border-rule-strong text-paper-dim",
+        success: "border-severity-moderate/35 text-severity-moderate",
+        warning: "border-severity-busy/35 text-severity-busy",
+        high: "border-severity-high/40 text-severity-high",
+        destructive: "border-severity-critical/45 text-severity-critical",
+        critical: "border-transparent bg-severity-critical font-semibold text-ink",
+        muted: "border-rule text-paper-faint",
       },
     },
     defaultVariants: {
@@ -22,9 +24,7 @@ const badgeVariants = cva(
   }
 );
 
-export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {
+export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {
   dot?: boolean;
 }
 

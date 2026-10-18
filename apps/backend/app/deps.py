@@ -26,6 +26,16 @@ class CurrentUser:
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
+def user_from_token_payload(payload: dict) -> CurrentUser:
+    is_guest = bool(payload.get("is_guest", False))
+    return CurrentUser(
+        user_id=None if is_guest else uuid.UUID(payload.get("sub")),
+        role=payload.get("role", "guest"),
+        is_guest=is_guest,
+        permissions=payload.get("permissions", []),
+    )
+
+
 async def get_current_user(token: Annotated[str | None, Depends(oauth2_scheme)]) -> CurrentUser:
     if token is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
@@ -35,15 +45,7 @@ async def get_current_user(token: Annotated[str | None, Depends(oauth2_scheme)])
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     if payload.get("type") != "access":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Wrong token type")
-
-    is_guest = bool(payload.get("is_guest", False))
-    sub = payload.get("sub")
-    return CurrentUser(
-        user_id=None if is_guest else uuid.UUID(sub),
-        role=payload.get("role", "guest"),
-        is_guest=is_guest,
-        permissions=payload.get("permissions", []),
-    )
+    return user_from_token_payload(payload)
 
 
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]

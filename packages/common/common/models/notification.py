@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -53,3 +54,7 @@ class GeofenceSubscription(Base, UUIDPKMixin, TimestampMixin):
     radius_m: Mapped[float] = mapped_column(Float, default=200.0, nullable=False)
     channels: Mapped[list] = mapped_column(PortableJSON, default=list, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    unsubscribe_token: Mapped[str] = mapped_column(
+        String(64), unique=True, index=True, nullable=False, default=lambda: secrets.token_urlsafe(32)
+    )
+    """Bearer capability for self-service unsubscribe links; never listed by the API."""

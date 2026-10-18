@@ -24,7 +24,7 @@ export interface User {
   created_at: string;
 }
 
-export type StreamType = "rtsp" | "http" | "onvif" | "usb" | "file" | "webcam";
+export type StreamType = "rtsp" | "http" | "onvif" | "usb" | "file" | "webcam" | "simulated";
 export type CameraStatus = "online" | "offline" | "error" | "starting" | "disabled";
 
 export interface Camera {
@@ -79,6 +79,8 @@ export interface CameraCreateInput {
   tilt_deg?: number;
   fov_deg?: number;
   range_m?: number;
+  config?: Record<string, unknown>;
+  is_active?: boolean;
 }
 
 export interface Building {
@@ -90,6 +92,19 @@ export interface Building {
   longitude: number | null;
 }
 
+export interface Wall {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+export interface FloorLayout {
+  wall_height_m?: number;
+  walls?: Wall[];
+  labels?: Array<{ text: string; x: number; y: number }>;
+}
+
 export interface Floor {
   id: string;
   building_id: string;
@@ -97,7 +112,7 @@ export interface Floor {
   level_index: number;
   width_m: number;
   depth_m: number;
-  layout: Record<string, unknown> | null;
+  layout: FloorLayout | null;
 }
 
 export type ZoneType =
@@ -157,7 +172,24 @@ export interface Alert {
   acknowledged_by: string | null;
   acknowledged_at: string | null;
   resolved_at: string | null;
+  metadata: {
+    track_ids?: number[];
+    floor_id?: string | null;
+    people_in_view?: number;
+    /** Repeats grouped into this alert by the backend, counting the first. */
+    occurrences?: number;
+    last_seen_at?: string;
+    [key: string]: unknown;
+  };
   created_at: string;
+}
+
+export interface AlertStats {
+  window_hours: number;
+  total: number;
+  by_status: Partial<Record<AlertStatus, number>>;
+  by_severity: Partial<Record<AlertSeverity, number>>;
+  by_type: Partial<Record<AlertType, number>>;
 }
 
 export interface DashboardSummary {

@@ -1,0 +1,10 @@
+{
+  "maxConsoleErrors": 0,
+  "maxCLS": 0.1,
+  "maxLCPms": 3500,
+  "minFpsDesktop": 50,
+  "minFpsMobile": 30,
+  "minPaintStd": 3,
+  "juryPassScore": 7.0,
+  "juryWeights": { "design": 0.4, "usability": 0.3, "creativity": 0.2, "content": 0.1 }
+}

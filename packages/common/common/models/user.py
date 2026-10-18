@@ -50,6 +50,10 @@ class User(Base, UUIDPKMixin, TimestampMixin):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_guest: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    phone_number: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    """E.164 number for SMS/WhatsApp alert routing to staff."""
+    notify_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    """Staff opt-out from alert notifications (e.g. off shift)."""
     last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     role: Mapped[Optional["Role"]] = relationship(back_populates="users")

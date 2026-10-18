@@ -5,9 +5,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.api import api_router
+from app.core import observability
 from app.core.config import get_settings
+from app.db.demo_seed import seed_demo_facility, seed_demo_team
 from app.db.seed import run_seed
 from app.db.session import AsyncSessionLocal
+from app.ws.bridge import bridge
 from app.ws.router import router as ws_router
 
 settings = get_settings()
@@ -22,9 +25,17 @@ async def lifespan(app: FastAPI):
         try:
             await run_seed(db)
             logger.info("Startup seed complete (roles, permissions, first admin, default settings).")
+            if settings.SEED_DEMO_DATA:
+                created = await seed_demo_facility(db)
+                if await seed_demo_team(db) or created:
+                    await db.commit()
         except Exception:
             logger.exception("Startup seed failed - database may not be migrated yet.")
+    if settings.ENABLE_WS_BRIDGE:
+        bridge.start()
     yield
+    if settings.ENABLE_WS_BRIDGE:
+        await bridge.stop()
 
 
 app = FastAPI(
@@ -32,8 +43,9 @@ app = FastAPI(
     version="0.1.0",
     debug=settings.DEBUG,
     lifespan=lifespan,
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
+    # Interactive docs stay off in production; the schema is still published for clients.
+    docs_url=None if settings.ENVIRONMENT == "production" else "/api/docs",
+    redoc_url=None if settings.ENVIRONMENT == "production" else "/api/redoc",
     openapi_url="/api/openapi.json",
 )
 
@@ -44,6 +56,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+observability.install(app)
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 app.include_router(ws_router)

@@ -14,6 +14,7 @@ x-backend-env: &backend-env
   FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:-ChangeMe123!}
   FIRST_ADMIN_NAME: ${FIRST_ADMIN_NAME:-Platform Administrator}
   ENVIRONMENT: ${ENVIRONMENT:-development}
+  SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
 
 services:
   postgres:
@@ -37,6 +38,8 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     command: ["redis-server", "--save", "60", "1"]
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
       - redisdata:/data
     healthcheck:
@@ -77,6 +80,61 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+
+  ai-service:
+    image: crowd-density-ai:latest
+    build:
+      context: .
+      dockerfile: apps/ai-service/Dockerfile
+      args:
+        BASE_IMAGE: ${AI_SERVICE_BASE_IMAGE:-pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://ccd:ccd@postgres:5432/ccd}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      BACKEND_URL: http://backend:8000
+      INTERNAL_SERVICE_API_KEY: ${INTERNAL_SERVICE_API_KEY:-dev-internal-service-key-change-me}
+      CAMERA_CREDENTIAL_ENCRYPTION_KEY: ${CAMERA_CREDENTIAL_ENCRYPTION_KEY:-3vY9x2b6w0G8e5v3q9m1n4p7r0t2u5x8A1b3D6f9J2k=}
+      DEVICE: ${AI_SERVICE_DEVICE:-auto}
+      MEDIA_DIR: /data/media
+    volumes:
+      - media:/data/media
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  worker:
+    image: crowd-density-worker:latest
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://ccd:ccd@postgres:5432/ccd}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      PUBLIC_DASHBOARD_URL: ${PUBLIC_DASHBOARD_URL:-http://localhost:3000}
+      SEED_DEMO_HISTORY: ${SEED_DEMO_HISTORY:-true}
+      NOTIFICATION_EMAIL_PROVIDER: ${NOTIFICATION_EMAIL_PROVIDER:-console}
+      NOTIFICATION_SMS_PROVIDER: ${NOTIFICATION_SMS_PROVIDER:-console}
+      NOTIFICATION_WHATSAPP_PROVIDER: ${NOTIFICATION_WHATSAPP_PROVIDER:-console}
+      NOTIFICATION_PUSH_PROVIDER: ${NOTIFICATION_PUSH_PROVIDER:-console}
+      NOTIFICATION_ANNOUNCEMENT_PROVIDER: ${NOTIFICATION_ANNOUNCEMENT_PROVIDER:-console}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-CCD Alerts <alerts@ccd-platform.com>}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_SMS_FROM: ${TWILIO_SMS_FROM:-}
+      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-}
+      FCM_SERVICE_ACCOUNT_FILE: ${FCM_SERVICE_ACCOUNT_FILE:-}
+      PUSH_WEBHOOK_URL: ${PUSH_WEBHOOK_URL:-}
+      ANNOUNCEMENT_WEBHOOK_URL: ${ANNOUNCEMENT_WEBHOOK_URL:-}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
+    depends_on:
+      backend:
+        condition: service_healthy
 
   frontend:
     image: crowd-density-frontend:latest
