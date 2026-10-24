@@ -13,7 +13,7 @@ import { InstrumentStrip } from "@/components/dashboard/instrument-strip";
 import { useAlert, useAlertStats, useAlerts, useSetAlertStatus } from "@/hooks/use-alerts";
 import { useCameras } from "@/hooks/use-cameras";
 import { useAllFloors, useZones } from "@/hooks/use-map";
-import { ApiError } from "@/lib/api-client";
+import { API_URL, ApiError } from "@/lib/api-client";
 import { alertSeverityBadge, formatAlertType, relativeTime } from "@/lib/format";
 import { Perm } from "@/lib/permissions";
 import type { Alert, AlertSeverity, AlertStatus, AlertType } from "@/lib/types";
@@ -93,7 +93,7 @@ function AlertDetail({ id, canManage }: { id: string; canManage: boolean }) {
         {alert.snapshot_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}${alert.snapshot_url}`}
+            src={`${API_URL}${alert.snapshot_url}`}
             alt={`Snapshot when "${alert.title}" was raised`}
             className="absolute inset-0 h-full w-full object-cover"
           />

@@ -1,6 +1,13 @@
+import { demoFetch } from "@/lib/demo/fetch";
+import { DEMO_MODE } from "@/lib/demo/mode";
 import { useAuthStore } from "@/stores/auth-store";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export const API_URL = DEMO_MODE ? "" : (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000");
+
+/** fetch() for API paths; in demo builds it answers from the recording instead. */
+export function httpFetch(url: string, init?: RequestInit): Promise<Response> {
+  return DEMO_MODE ? demoFetch(url, init) : fetch(url, init);
+}
 
 export class ApiError extends Error {
   status: number;
@@ -20,7 +27,7 @@ export async function refreshAccessToken(): Promise<string | null> {
   if (!refreshToken) return null;
 
   if (!refreshPromise) {
-    refreshPromise = fetch(`${API_URL}/api/v1/auth/refresh`, {
+    refreshPromise = httpFetch(`${API_URL}/api/v1/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: refreshToken }),
@@ -57,7 +64,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     finalHeaders.Authorization = `Bearer ${accessToken}`;
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await httpFetch(`${API_URL}${path}`, {
     ...rest,
     headers: finalHeaders,
     body: body !== undefined ? JSON.stringify(body) : undefined,

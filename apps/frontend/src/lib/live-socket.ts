@@ -1,4 +1,6 @@
 import { refreshAccessToken } from "@/lib/api-client";
+import { DEMO_MODE } from "@/lib/demo/mode";
+import { DemoWebSocket } from "@/lib/demo/socket";
 import type { LiveMessage, LiveStatus } from "@/lib/live-types";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -100,7 +102,7 @@ class LiveSocket {
     this.lastToken = token;
     this.setStatus(this._status === "idle" ? "connecting" : "reconnecting");
 
-    const ws = new WebSocket(`${wsBase()}/ws/live`);
+    const ws = DEMO_MODE ? (new DemoWebSocket() as unknown as WebSocket) : new WebSocket(`${wsBase()}/ws/live`);
     this.ws = ws;
     this.ready = false;
 

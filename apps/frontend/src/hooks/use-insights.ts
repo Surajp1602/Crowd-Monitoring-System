@@ -1,7 +1,7 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { apiFetch } from "@/lib/api-client";
+import { API_URL, apiFetch, httpFetch } from "@/lib/api-client";
 
 export interface SeriesPoint {
   t: string;
@@ -101,9 +101,8 @@ export function useAlertsByDay(range: RangeId, enabled: boolean) {
 }
 
 export async function downloadCsv(range: RangeId, scopeType: string, accessToken: string | null) {
-  const api = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
   const q = new URLSearchParams({ metric: "people", scope_type: scopeType, since: sinceFor(range) });
-  const resp = await fetch(`${api}/api/v1/analytics/timeseries.csv?${q}`, {
+  const resp = await httpFetch(`${API_URL}/api/v1/analytics/timeseries.csv?${q}`, {
     headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
   });
   if (!resp.ok) throw new Error(`Export failed (${resp.status})`);

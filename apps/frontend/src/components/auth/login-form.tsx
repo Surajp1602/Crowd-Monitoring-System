@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api-client";
+import { DEMO_MODE } from "@/lib/demo/mode";
 import { cn } from "@/lib/utils";
 import { useGuestLogin, useLogin } from "@/hooks/use-auth";
 
@@ -17,8 +18,8 @@ export function LoginForm() {
   const router = useRouter();
   const login = useLogin();
   const guestLogin = useGuestLogin();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState(DEMO_MODE ? "demo@ccd-demo.com" : "");
+  const [password, setPassword] = useState(DEMO_MODE ? "demo-visitor" : "");
   const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -69,6 +70,12 @@ export function LoginForm() {
       </TabsPrimitive.List>
 
       <TabsPrimitive.Content value="authority">
+        {DEMO_MODE && (
+          <p className="mb-4 rounded-[4px] border border-rule px-3 py-2.5 text-sm leading-relaxed text-paper-dim">
+            This is a demo. It replays a recording of the live AI pipeline on eight simulated cameras.
+            The sign-in details are filled in: just press Sign in.
+          </p>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
