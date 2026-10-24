@@ -23,6 +23,8 @@ build/
 pgdata/
 redisdata/
 media/
+# Alert snapshots that ship with the recorded demo (infra/scripts/record_demo.py).
+!apps/frontend/public/demo/media/
 
 # AI models/weights (large binaries, fetched at build/runtime instead)
 *.pt
